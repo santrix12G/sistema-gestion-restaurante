@@ -1,0 +1,419 @@
+// Modelo de datos del sistema de gestión de restaurante.
+// En el código se usan nombres camelCase; en PostgreSQL y Supabase, snake_case.
+// Los valores de dinero son pesos colombianos enteros, sin decimales.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  ADMIN
+  MESERO
+  COCINA
+  REPARTIDOR
+
+  @@map("rol_usuario")
+}
+
+enum TipoPedido {
+  MESA
+  DOMICILIO
+  RECOGER
+
+  @@map("tipo_pedido")
+}
+
+enum CanalPedido {
+  WEB
+  MOVIL
+  WHATSAPP
+
+  @@map("canal_pedido")
+}
+
+enum EstadoPedido {
+  PENDIENTE
+  CONFIRMADO
+  EN_PREPARACION
+  LISTO
+  EN_CAMINO
+  ENTREGADO
+  CANCELADO
+
+  @@map("estado_pedido")
+}
+
+enum EstadoEntrega {
+  PENDIENTE
+  ASIGNADA
+  EN_CAMINO
+  ENTREGADA
+  FALLIDA
+
+  @@map("estado_entrega")
+}
+
+enum MetodoPago {
+  EFECTIVO
+  ONLINE
+
+  @@map("metodo_pago")
+}
+
+enum EstadoPago {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  REEMBOLSADO
+
+  @@map("estado_pago")
+}
+
+enum PasoConversacion {
+  INICIO
+  ARMANDO_PEDIDO
+  TIPO_ENTREGA
+  DIRECCION
+  METODO_PAGO
+  CONFIRMACION
+
+  @@map("paso_conversacion")
+}
+
+enum DireccionMensaje {
+  ENTRANTE
+  SALIENTE
+
+  @@map("direccion_mensaje")
+}
+
+enum UnidadMedida {
+  GRAMO
+  MILILITRO
+  UNIDAD
+
+  @@map("unidad_medida")
+}
+
+enum TipoMovimiento {
+  ENTRADA
+  AJUSTE
+  SALIDA_PEDIDO
+  DEVOLUCION_PEDIDO
+
+  @@map("tipo_movimiento")
+}
+
+// ---------- Personal ----------
+
+model Usuario {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre       String
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  rol          RolUsuario
+  activo       Boolean    @default(true)
+  creadoEn     DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  pedidosCreados Pedido[]
+  entregas       Entrega[]
+  historial      HistorialEstadoPedido[]
+  movimientos    MovimientoInventario[]
+
+  @@map("usuarios")
+}
+
+// ---------- Clientes ----------
+
+model Cliente {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String?
+  /// Formato internacional, por ejemplo +573001234567. Identifica al cliente en WhatsApp
+  telefono String   @unique
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  direcciones  Direccion[]
+  pedidos      Pedido[]
+  conversacion Conversacion?
+
+  @@map("clientes")
+}
+
+model Direccion {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId  String   @map("cliente_id") @db.Uuid
+  texto      String
+  barrio     String?
+  referencia String?
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente  Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  entregas Entrega[]
+
+  @@unique([clienteId, texto])
+  @@map("direcciones")
+}
+
+// ---------- Catálogo ----------
+
+model Categoria {
+  id     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre String  @unique
+  orden  Int     @default(0)
+  activa Boolean @default(true)
+
+  productos Producto[]
+
+  @@map("categorias")
+}
+
+model Producto {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoriaId String   @map("categoria_id") @db.Uuid
+  nombre      String   @unique
+  descripcion String?
+  precio      Int
+  disponible  Boolean  @default(true)
+  /// Otras formas de nombrar el producto, para que el chatbot lo reconozca
+  sinonimos   String[] @default([])
+  creadoEn    DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  categoria Categoria       @relation(fields: [categoriaId], references: [id])
+  detalles  DetallePedido[]
+  receta    Receta[]
+
+  @@index([categoriaId])
+  @@map("productos")
+}
+
+// ---------- Pedidos ----------
+
+model Mesa {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero    Int     @unique
+  capacidad Int     @default(4)
+  activa    Boolean @default(true)
+
+  pedidos Pedido[]
+
+  @@map("mesas")
+}
+
+model Pedido {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Número corto que ven el cliente y la cocina
+  numero            Int          @unique @default(autoincrement())
+  /// Evita duplicar el pedido si WhatsApp o la app móvil reintentan
+  claveIdempotencia String?      @unique @map("clave_idempotencia")
+  tipo              TipoPedido
+  canal             CanalPedido
+  estado            EstadoPedido @default(PENDIENTE)
+  clienteId         String?      @map("cliente_id") @db.Uuid
+  mesaId            String?      @map("mesa_id") @db.Uuid
+  /// Mesero que lo registró. Vacío si lo creó el cliente por WhatsApp o la app móvil
+  creadoPorId       String?      @map("creado_por_id") @db.Uuid
+  subtotal          Int
+  costoDomicilio    Int          @default(0) @map("costo_domicilio")
+  total             Int
+  notas             String?
+  creadoEn          DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente     Cliente?                @relation(fields: [clienteId], references: [id])
+  mesa        Mesa?                   @relation(fields: [mesaId], references: [id])
+  creadoPor   Usuario?                @relation(fields: [creadoPorId], references: [id])
+  detalles    DetallePedido[]
+  historial   HistorialEstadoPedido[]
+  entrega     Entrega?
+  pagos       Pago[]
+  movimientos MovimientoInventario[]
+
+  @@index([estado])
+  @@index([creadoEn])
+  @@index([clienteId])
+  @@map("pedidos")
+}
+
+model DetallePedido {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId       String  @map("pedido_id") @db.Uuid
+  productoId     String  @map("producto_id") @db.Uuid
+  /// Nombre y precio al momento de la venta: cambiar el menú no altera las ventas pasadas
+  nombreProducto String  @map("nombre_producto")
+  precioUnitario Int     @map("precio_unitario")
+  cantidad       Int
+  subtotal       Int
+  notas          String?
+
+  pedido   Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [productoId], references: [id])
+
+  @@index([pedidoId])
+  @@index([productoId])
+  @@map("detalles_pedido")
+}
+
+model HistorialEstadoPedido {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId    String        @map("pedido_id") @db.Uuid
+  estadoAntes EstadoPedido? @map("estado_antes")
+  estadoNuevo EstadoPedido  @map("estado_nuevo")
+  usuarioId   String?       @map("usuario_id") @db.Uuid
+  creadoEn    DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  pedido  Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([pedidoId, creadoEn])
+  @@map("historial_estados_pedido")
+}
+
+// ---------- Entregas ----------
+
+model Entrega {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId       String        @unique @map("pedido_id") @db.Uuid
+  direccionId    String        @map("direccion_id") @db.Uuid
+  /// Copia de la dirección: corregirla después no cambia a dónde se envió este pedido
+  direccionTexto String        @map("direccion_texto")
+  repartidorId   String?       @map("repartidor_id") @db.Uuid
+  estado         EstadoEntrega @default(PENDIENTE)
+  observacion    String?
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  asignadaEn     DateTime?     @map("asignada_en") @db.Timestamptz(3)
+  entregadaEn    DateTime?     @map("entregada_en") @db.Timestamptz(3)
+
+  pedido     Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  direccion  Direccion @relation(fields: [direccionId], references: [id])
+  repartidor Usuario?  @relation(fields: [repartidorId], references: [id])
+
+  @@index([repartidorId, estado])
+  @@map("entregas")
+}
+
+// ---------- Pagos ----------
+
+model Pago {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId          String     @map("pedido_id") @db.Uuid
+  metodo            MetodoPago
+  estado            EstadoPago @default(PENDIENTE)
+  monto             Int
+  /// Pasarela de pago, por ejemplo mercadopago. Vacío si es efectivo
+  proveedor         String?
+  /// Identificador en la pasarela: descarta las notificaciones repetidas de su webhook
+  referenciaExterna String?    @map("referencia_externa")
+  urlPago           String?    @map("url_pago")
+  creadoEn          DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime   @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@unique([proveedor, referenciaExterna])
+  @@index([pedidoId])
+  @@map("pagos")
+}
+
+// ---------- Chatbot de WhatsApp ----------
+
+model Conversacion {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId String           @unique @map("cliente_id") @db.Uuid
+  paso      PasoConversacion @default(INICIO)
+  /// Lo recogido hasta ahora en el diálogo: carrito, tipo de entrega, dirección y pago
+  contexto  Json             @default("{}")
+  creadoEn  DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente  Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  mensajes Mensaje[]
+
+  @@map("conversaciones")
+}
+
+model Mensaje {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversacionId String           @map("conversacion_id") @db.Uuid
+  direccion      DireccionMensaje
+  texto          String
+  /// Identificador de WhatsApp: descarta los reenvíos del webhook
+  waMessageId    String?          @unique @map("wa_message_id")
+  /// Intención que detectó el NLP
+  intencion      String?
+  creadoEn       DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@index([conversacionId, creadoEn])
+  @@map("mensajes")
+}
+
+// ---------- Inventario ----------
+
+model Ingrediente {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre      String       @unique
+  unidad      UnidadMedida
+  /// Puede quedar negativo: refleja una diferencia con el conteo físico, sin frenar las ventas
+  stock       Int          @default(0)
+  stockMinimo Int          @default(0) @map("stock_minimo")
+
+  recetas     Receta[]
+  movimientos MovimientoInventario[]
+
+  @@map("ingredientes")
+}
+
+model Receta {
+  productoId    String @map("producto_id") @db.Uuid
+  ingredienteId String @map("ingrediente_id") @db.Uuid
+  cantidad      Int
+
+  producto    Producto    @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id])
+
+  @@id([productoId, ingredienteId])
+  @@index([ingredienteId])
+  @@map("recetas")
+}
+
+model MovimientoInventario {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ingredienteId String         @map("ingrediente_id") @db.Uuid
+  tipo          TipoMovimiento
+  /// Positivo si entra al inventario, negativo si sale
+  cantidad      Int
+  pedidoId      String?        @map("pedido_id") @db.Uuid
+  usuarioId     String?        @map("usuario_id") @db.Uuid
+  motivo        String?
+  creadoEn      DateTime       @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id])
+  pedido      Pedido?     @relation(fields: [pedidoId], references: [id])
+  usuario     Usuario?    @relation(fields: [usuarioId], references: [id])
+
+  // Un pedido no puede descontar ni devolver el mismo ingrediente dos veces
+  @@unique([pedidoId, ingredienteId, tipo])
+  @@index([ingredienteId, creadoEn])
+  @@map("movimientos_inventario")
+}
+
+// ---------- Integración ----------
+
+/// Bandeja de salida: el evento se guarda en la misma transacción que el cambio de negocio
+model EventoOutbox {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Por ejemplo PEDIDO_CONFIRMADO o PEDIDO_LISTO_PARA_ENTREGA
+  tipo        String
+  payload     Json
+  creadoEn    DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  publicadoEn DateTime? @map("publicado_en") @db.Timestamptz(3)
+
+  @@index([publicadoEn, creadoEn])
+  @@map("eventos_outbox")
+}
