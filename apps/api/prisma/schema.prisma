@@ -32,8 +32,17 @@ enum CanalPedido {
   WEB
   MOVIL
   WHATSAPP
+  TELEGRAM
 
   @@map("canal_pedido")
+}
+
+/// Canal de mensajería por el que conversa el chatbot
+enum CanalChat {
+  WHATSAPP
+  TELEGRAM
+
+  @@map("canal_chat")
 }
 
 enum EstadoPedido {
@@ -131,15 +140,17 @@ model Usuario {
 // ---------- Clientes ----------
 
 model Cliente {
-  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre   String?
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre         String?
   /// Formato internacional, por ejemplo +573001234567. Identifica al cliente en WhatsApp
-  telefono String   @unique
-  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  telefono       String   @unique
+  /// Chat de Telegram del cliente. Se vincula cuando comparte su número con el bot
+  telegramChatId String?  @unique @map("telegram_chat_id")
+  creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  direcciones  Direccion[]
-  pedidos      Pedido[]
-  conversacion Conversacion?
+  direcciones    Direccion[]
+  pedidos        Pedido[]
+  conversaciones Conversacion[]
 
   @@map("clientes")
 }
@@ -322,17 +333,20 @@ model Pago {
 // ---------- Chatbot de WhatsApp ----------
 
 model Conversacion {
-  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  clienteId String           @unique @map("cliente_id") @db.Uuid
-  paso      PasoConversacion @default(INICIO)
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId     String           @map("cliente_id") @db.Uuid
+  /// Una conversación por cliente y canal: WhatsApp y Telegram no se mezclan
+  canal         CanalChat        @default(WHATSAPP)
+  paso          PasoConversacion @default(INICIO)
   /// Lo recogido hasta ahora en el diálogo: carrito, tipo de entrega, dirección y pago
-  contexto  Json             @default("{}")
-  creadoEn  DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  contexto      Json             @default("{}")
+  creadoEn      DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime         @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   cliente  Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   mensajes Mensaje[]
 
+  @@unique([clienteId, canal])
   @@map("conversaciones")
 }
 

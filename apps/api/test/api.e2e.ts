@@ -19,7 +19,7 @@ async function producto(nombre: string) {
 
 beforeAll(async () => {
   const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  app = modulo.createNestApplication();
+  app = modulo.createNestApplication({ rawBody: true });
   configurarApp(app, leerConfig());
   await app.init();
 

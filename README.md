@@ -1,6 +1,6 @@
 # Sistema de gestión de restaurante
 
-Toma de pedidos automatizada por chatbot de WhatsApp, con aplicación web para el personal, aplicación móvil para clientes y repartidores, inventario y dashboard de ventas. Se construye como un monolito modular.
+Toma de pedidos automatizada por chatbot de WhatsApp y Telegram, con aplicación web para el personal, aplicación móvil para clientes y repartidores, inventario y dashboard de ventas. Se construye como un monolito modular.
 
 Proyecto de Gestión Tecnológica, Universidad de la Amazonia.
 Autores: Jean Carlos Jimenez Ortega y Santiago Cuellar Gonzales.
@@ -10,8 +10,8 @@ Autores: Jean Carlos Jimenez Ortega y Santiago Cuellar Gonzales.
 | Etapa | Estado |
 |---|---|
 | 1. Base de datos en Supabase | Lista. Ver [docs/base-de-datos.md](docs/base-de-datos.md) |
-| 2. Aplicación web (Next.js + React) | Versión básica: pedidos en mesa y para recoger, cocina y menú. Ver [docs/arquitectura.md](docs/arquitectura.md) |
-| 3. Chatbot de WhatsApp | Pendiente |
+| 2. Aplicación web (Next.js + React) | Pedidos en mesa, para recoger y a domicilio, cocina en tiempo real, menú y simulador del chatbot. Ver [docs/arquitectura.md](docs/arquitectura.md) |
+| 3. Chatbot de WhatsApp y Telegram | Funciona en Telegram con solo un token. Se conecta a WhatsApp por Twilio (o directo con Meta) y se prueba en la web sin ninguno de los dos. Ver [docs/whatsapp.md](docs/whatsapp.md) |
 | 4. Aplicación móvil (React Native) | Pendiente |
 | 5. Despliegue | Pendiente |
 
@@ -19,7 +19,7 @@ Autores: Jean Carlos Jimenez Ortega y Santiago Cuellar Gonzales.
 
 Requiere Node.js 20 o superior. Trabaja en una copia fuera de OneDrive, por ejemplo `C:\dev\restaurante`, porque OneDrive bloquea `node_modules`.
 
-**1. API** (en `apps/api`). Copia `.env.example` como `.env` y completa `DATABASE_URL`, `JWT_SECRET` y las contraseñas del seed. Luego:
+**1. API** (en `apps/api`). Copia `.env.example` como `.env` y completa `DATABASE_URL`, `JWT_SECRET` y las contraseñas del seed. Las variables del chatbot pueden quedar como están: arranca en modo simulado. Luego:
 
 ```bash
 npm ci
@@ -51,10 +51,10 @@ Abre http://localhost:3000. Los usuarios son `admin@restaurante.test`, `mesero@r
 
 | Rol | Pantallas |
 |---|---|
-| Administrador | Todo, incluido crear y editar productos |
+| Administrador | Todo, incluido crear y editar productos y probar el chatbot en el simulador |
 | Mesero | Tomar pedidos, entregarlos y cancelarlos antes de que entren a cocina |
 | Cocina | Preparar pedidos y marcar productos agotados |
-| Repartidor | Ver pedidos. Sus funciones llegan con los domicilios |
+| Repartidor | Marcar los domicilios como enviados y entregados |
 
 ## Pruebas
 
@@ -68,4 +68,4 @@ npm test
 npm run test:e2e
 ```
 
-La primera prueba las reglas de los pedidos. La segunda prueba la API completa contra un PostgreSQL temporal, sin tocar Supabase.
+La primera prueba las reglas de los pedidos y del chatbot. La segunda prueba la API completa contra un PostgreSQL temporal, sin tocar Supabase: incluye conversaciones de WhatsApp firmadas como las de Twilio y Meta, conversaciones de Telegram y los avisos en tiempo real.

@@ -7,6 +7,7 @@ import { llamar } from '@/lib/api';
 import { useCambiarEstado } from '@/lib/cambiar-estado';
 import { useDatos } from '@/lib/hooks';
 import { useSesion } from '@/lib/sesion';
+import { useTiempoReal } from '@/lib/tiempo-real';
 import { EstadoPedido, Pedido } from '@/lib/tipos';
 
 const COLUMNAS: { estado: EstadoPedido; titulo: string }[] = [
@@ -19,23 +20,32 @@ const COLUMNAS: { estado: EstadoPedido; titulo: string }[] = [
 
 export default function Pedidos() {
   const { usuario } = useSesion();
-  const { datos: pedidos, error, recargar } = useDatos(() => llamar<Pedido[]>('/pedidos'), 5000);
+  const { datos: pedidos, error, recargar } = useDatos(() => llamar<Pedido[]>('/pedidos'), 30_000);
+  useTiempoReal(recargar);
   const { cambiar, ocupado, error: errorCambio } = useCambiarEstado(recargar);
   const atiende = usuario?.rol === 'ADMIN' || usuario?.rol === 'MESERO';
+  const reparte = usuario?.rol === 'ADMIN' || usuario?.rol === 'REPARTIDOR';
 
-  // Las columnas de pendientes y en camino solo aparecen cuando tienen pedidos: llegarán con WhatsApp y domicilios
+  // Las columnas de pendientes y en camino solo aparecen cuando tienen pedidos
   const columnas = COLUMNAS.filter((c) => !['PENDIENTE', 'EN_CAMINO'].includes(c.estado) || pedidos?.some((p) => p.estado === c.estado));
 
   // Los botones solo muestran lo que el rol puede hacer. La API vuelve a validarlo.
   function acciones(p: Pedido) {
-    if (!atiende) return null;
+    if (!atiende && !reparte) return null;
     const deshabilitado = ocupado === p.id;
+    const domicilio = p.tipo === 'DOMICILIO';
     return (
       <>
-        {p.estado === 'LISTO' && p.tipo !== 'DOMICILIO' && (
+        {reparte && domicilio && p.estado === 'LISTO' && (
+          <Boton onClick={() => cambiar(p.id, 'EN_CAMINO')} disabled={deshabilitado}>Salió a entregar</Boton>
+        )}
+        {reparte && domicilio && p.estado === 'EN_CAMINO' && (
+          <Boton variante="exito" onClick={() => cambiar(p.id, 'ENTREGADO')} disabled={deshabilitado}>Entregado</Boton>
+        )}
+        {atiende && p.estado === 'LISTO' && !domicilio && (
           <Boton onClick={() => cambiar(p.id, 'ENTREGADO')} disabled={deshabilitado}>Entregado</Boton>
         )}
-        {(p.estado === 'PENDIENTE' || p.estado === 'CONFIRMADO') && (
+        {atiende && (p.estado === 'PENDIENTE' || p.estado === 'CONFIRMADO') && (
           <Boton
             variante="peligro"
             disabled={deshabilitado}

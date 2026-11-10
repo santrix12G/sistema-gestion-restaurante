@@ -1,5 +1,5 @@
 // Cliente HTTP de la API. Toda la web habla con el backend por aquí.
-const URL_API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+export const URL_API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 const CLAVE_SESION = 'restaurante.sesion';
 
 export class ErrorApi extends Error {

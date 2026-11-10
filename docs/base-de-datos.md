@@ -12,7 +12,7 @@ Corresponde a la Fase 2 de la guía metodológica. El esquema está en [`schema.
 | Pedidos | `mesas`, `pedidos`, `detalles_pedido`, `historial_estados_pedido` | Pedidos de los tres canales, y quién cambió cada estado y cuándo |
 | Entregas | `entregas` | Dirección, repartidor y estado de cada domicilio |
 | Pagos | `pagos` | Efectivo o pasarela en línea |
-| Chatbot | `conversaciones`, `mensajes` | En qué paso va cada cliente, lo que lleva pedido y los mensajes |
+| Chatbot | `conversaciones`, `mensajes` | En qué paso va cada cliente en cada canal (WhatsApp o Telegram), lo que lleva pedido y los mensajes |
 | Inventario (opcional) | `ingredientes`, `recetas`, `movimientos_inventario` | Stock, consumo por producto y cada entrada o salida |
 | Integración | `eventos_outbox` | Eventos pendientes de publicar en el bus, como `PEDIDO_CONFIRMADO` |
 
@@ -24,7 +24,7 @@ El módulo analítico no necesita tablas propias: el dashboard calcula ventas, p
 erDiagram
     CLIENTES ||--o{ DIRECCIONES : tiene
     CLIENTES ||--o{ PEDIDOS : hace
-    CLIENTES ||--o| CONVERSACIONES : sostiene
+    CLIENTES ||--o{ CONVERSACIONES : sostiene
     CONVERSACIONES ||--o{ MENSAJES : contiene
     CATEGORIAS ||--o{ PRODUCTOS : agrupa
     MESAS |o--o{ PEDIDOS : atiende
@@ -48,7 +48,7 @@ erDiagram
 
 - **Ventas que no cambian:** `detalles_pedido` copia el nombre y el precio, y `entregas` copia la dirección. Editar el menú o una dirección no altera lo ya vendido.
 - **Stock trazable:** el stock se actualiza con un trigger cada vez que se registra un movimiento. Los movimientos no se editan ni se borran: un error se corrige con un `AJUSTE`.
-- **Reintentos sin duplicados:** WhatsApp y las pasarelas repiten sus notificaciones. Lo impiden `wa_message_id`, `clave_idempotencia` y `referencia_externa`, que son únicos.
+- **Reintentos sin duplicados:** WhatsApp y las pasarelas repiten sus notificaciones. Lo impiden `wa_message_id` (guarda el identificador del mensaje en WhatsApp o Telegram), `clave_idempotencia` y `referencia_externa`, que son únicos.
 - **Reglas en la base de datos:** el total debe ser subtotal más domicilio, un pedido de mesa necesita mesa, un domicilio necesita cliente y un pedido no admite dos pagos aprobados. Están en la migración `reglas_integridad`.
 - **Fechas:** se guardan con zona horaria (`timestamptz`), y la hora de Colombia se calcula al mostrarlas.
 - **Identificadores:** UUID generados por PostgreSQL. `pedidos.numero` es el número corto que ven el cliente y la cocina.

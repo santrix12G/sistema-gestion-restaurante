@@ -11,6 +11,7 @@ const NAVEGACION: { ruta: string; texto: string; roles: Rol[] }[] = [
   { ruta: '/pedidos/nuevo', texto: 'Nuevo pedido', roles: ['ADMIN', 'MESERO'] },
   { ruta: '/cocina', texto: 'Cocina', roles: ['ADMIN', 'COCINA'] },
   { ruta: '/menu', texto: 'Menú', roles: ['ADMIN', 'COCINA'] },
+  { ruta: '/chatbot', texto: 'Simulador WhatsApp', roles: ['ADMIN'] },
 ];
 
 const NOMBRE_ROL: Record<Rol, string> = { ADMIN: 'Administrador', MESERO: 'Mesero', COCINA: 'Cocina', REPARTIDOR: 'Repartidor' };

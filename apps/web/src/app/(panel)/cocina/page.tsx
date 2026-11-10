@@ -5,10 +5,12 @@ import { TarjetaPedido } from '@/components/tarjeta-pedido';
 import { llamar } from '@/lib/api';
 import { useCambiarEstado } from '@/lib/cambiar-estado';
 import { useDatos } from '@/lib/hooks';
+import { useTiempoReal } from '@/lib/tiempo-real';
 import { Pedido } from '@/lib/tipos';
 
 export default function Cocina() {
-  const { datos: pedidos, error, recargar } = useDatos(() => llamar<Pedido[]>('/pedidos?estados=CONFIRMADO,EN_PREPARACION'), 5000);
+  const { datos: pedidos, error, recargar } = useDatos(() => llamar<Pedido[]>('/pedidos?estados=CONFIRMADO,EN_PREPARACION'), 30_000);
+  useTiempoReal(recargar);
   const { cambiar, ocupado, error: errorCambio } = useCambiarEstado(recargar);
 
   const porPreparar = pedidos?.filter((p) => p.estado === 'CONFIRMADO') ?? [];
