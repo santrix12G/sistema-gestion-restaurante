@@ -13,7 +13,7 @@ Autores: Jean Carlos Jimenez Ortega y Santiago Cuellar Gonzales.
 | 2. Aplicación web (Next.js + React) | Pedidos en mesa, para recoger y a domicilio, cocina en tiempo real, menú y simulador del chatbot. Ver [docs/arquitectura.md](docs/arquitectura.md) |
 | 3. Chatbot de WhatsApp y Telegram | Funciona en Telegram con solo un token. Se conecta a WhatsApp por Twilio (o directo con Meta) y se prueba en la web sin ninguno de los dos. Ver [docs/whatsapp.md](docs/whatsapp.md) |
 | 4. Aplicación móvil (React Native) | Pendiente |
-| 5. Despliegue | Pendiente |
+| 5. Despliegue | API en Render y web en Vercel, desde `main`. Ver [docs/despliegue.md](docs/despliegue.md) |
 
 ## Ejecutarlo
 

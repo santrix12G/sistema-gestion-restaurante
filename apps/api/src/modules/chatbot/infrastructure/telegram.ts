@@ -29,7 +29,7 @@ export function aHtmlTelegram(texto: string) {
 }
 
 // Solo los campos que usa el bot
-interface ActualizacionTelegram {
+export interface ActualizacionTelegram {
   update_id: number;
   message?: {
     message_id: number;
@@ -85,12 +85,15 @@ function teclado({ pedirContacto, quitarTeclado }: OpcionesTelegram) {
 }
 
 /**
- * Le pregunta a Telegram por mensajes nuevos (long polling). No necesita una dirección pública ni ngrok.
- * Solo debe haber una API sondeando el mismo bot: si hay dos, Telegram responde con un conflicto.
+ * Conecta el bot con Telegram de una de dos formas:
+ * - Sondeo (por defecto): la API le pregunta a Telegram por mensajes nuevos. No necesita dirección pública ni ngrok.
+ * - Webhook (con TELEGRAM_WEBHOOK_SECRET): Telegram llama a la API. En Render gratis, ese llamado la despierta.
+ * Solo debe haber una API conectada al mismo bot: si hay dos, se quitan los mensajes entre sí.
  */
 @Injectable()
-export class SondeoTelegram implements OnApplicationBootstrap, OnApplicationShutdown {
+export class CanalTelegram implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger('Telegram');
+  private readonly config = leerConfig().telegram;
   private readonly cola = new ColaPorClave();
   private activo = false;
   private detener = new AbortController();
@@ -99,9 +102,9 @@ export class SondeoTelegram implements OnApplicationBootstrap, OnApplicationShut
   constructor(private readonly recibir: RecibirTelegramUseCase) {}
 
   onApplicationBootstrap() {
-    if (!leerConfig().telegram.token) return;
+    if (!this.config.token) return;
     this.activo = true;
-    void this.escuchar();
+    void (this.config.secretoWebhook ? this.registrarWebhook() : this.sondear());
   }
 
   onApplicationShutdown() {
@@ -109,7 +112,27 @@ export class SondeoTelegram implements OnApplicationBootstrap, OnApplicationShut
     this.detener.abort();
   }
 
-  private async escuchar() {
+  /** Procesa un mensaje en orden por chat, sin que un cliente haga esperar a los demás. */
+  entregar(actualizacion: ActualizacionTelegram) {
+    const mensaje = leerActualizacion(actualizacion);
+    if (!mensaje) return;
+    this.cola.ejecutar(mensaje.chatId, () => this.recibir.ejecutar(mensaje)).catch((e) =>
+      this.logger.error('Falló el procesamiento de un mensaje', e instanceof Error ? e.stack : e),
+    );
+  }
+
+  private async registrarWebhook() {
+    const url = `${this.config.urlPublica}/api/webhooks/telegram`;
+    try {
+      await llamarTelegram('setWebhook', { url, secret_token: this.config.secretoWebhook, allowed_updates: ['message'] });
+      const bot = await llamarTelegram<{ username: string }>('getMe');
+      this.logger.log(`Bot de Telegram @${bot.username} recibe mensajes en ${url}`);
+    } catch (e) {
+      this.logger.error(`No se pudo registrar el webhook de Telegram. ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  private async sondear() {
     try {
       // Con un webhook registrado, Telegram no entrega mensajes por sondeo
       await llamarTelegram('deleteWebhook');
@@ -128,12 +151,7 @@ export class SondeoTelegram implements OnApplicationBootstrap, OnApplicationShut
         );
         for (const a of actualizaciones) {
           this.siguiente = a.update_id + 1;
-          const mensaje = leerActualizacion(a);
-          if (!mensaje) continue;
-          // En orden por chat, sin que un cliente haga esperar a los demás
-          this.cola.ejecutar(mensaje.chatId, () => this.recibir.ejecutar(mensaje)).catch((e) =>
-            this.logger.error('Falló el procesamiento de un mensaje', e instanceof Error ? e.stack : e),
-          );
+          this.entregar(a);
         }
       } catch (e) {
         if (!this.activo) break;

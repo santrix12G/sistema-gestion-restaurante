@@ -1,5 +1,5 @@
 import { RecibirTelegramUseCase } from '../application/recibir-telegram.use-case';
-import { aHtmlTelegram, leerActualizacion, SondeoTelegram } from './telegram';
+import { aHtmlTelegram, CanalTelegram, leerActualizacion } from './telegram';
 
 describe('adaptador de Telegram', () => {
   it('pasa la negrita a HTML y escapa lo demás', () => {
@@ -53,7 +53,7 @@ describe('sondeo de Telegram', () => {
       return new Response(JSON.stringify({ ok: true, result }));
     });
     const recibir = { ejecutar: jest.fn().mockResolvedValue(undefined) };
-    const sondeo = new SondeoTelegram(recibir as unknown as RecibirTelegramUseCase);
+    const sondeo = new CanalTelegram(recibir as unknown as RecibirTelegramUseCase);
 
     sondeo.onApplicationBootstrap();
     await new Promise((r) => setTimeout(r, 50));
@@ -62,5 +62,29 @@ describe('sondeo de Telegram', () => {
     expect(pedidos.map((p) => p.metodo)).toEqual(['deleteWebhook', 'getMe', 'getUpdates', 'getUpdates']);
     expect(pedidos[3].cuerpo.offset).toBe(11);
     expect(recibir.ejecutar).toHaveBeenCalledWith(expect.objectContaining({ chatId: '5', texto: 'hola' }));
+  });
+
+  it('con secreto registra el webhook en lugar de sondear', async () => {
+    Object.assign(process.env, {
+      JWT_SECRET: 'x'.repeat(32),
+      DATABASE_URL: 'postgresql://sin-uso',
+      TELEGRAM_BOT_TOKEN: 'token-falso',
+      TELEGRAM_WEBHOOK_SECRET: 'secreto-de-telegram-123',
+      RENDER_EXTERNAL_URL: 'https://restaurante-api.onrender.com/',
+    });
+    const pedidos: { metodo: string; cuerpo: Record<string, unknown> }[] = [];
+    jest.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const metodo = String(url).split('/').pop()!;
+      pedidos.push({ metodo, cuerpo: JSON.parse(String(init?.body ?? '{}')) });
+      return new Response(JSON.stringify({ ok: true, result: metodo === 'getMe' ? { username: 'restaurante_bot' } : true }));
+    });
+    const canal = new CanalTelegram({ ejecutar: jest.fn() } as unknown as RecibirTelegramUseCase);
+
+    canal.onApplicationBootstrap();
+    await new Promise((r) => setTimeout(r, 20));
+    canal.onApplicationShutdown();
+
+    expect(pedidos.map((p) => p.metodo)).toEqual(['setWebhook', 'getMe']);
+    expect(pedidos[0].cuerpo).toMatchObject({ url: 'https://restaurante-api.onrender.com/api/webhooks/telegram', secret_token: 'secreto-de-telegram-123' });
   });
 });

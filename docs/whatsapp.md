@@ -98,7 +98,7 @@ El pedido aparece en **Pedidos** y **Cocina** con el canal *Telegram*, y los avi
 | `No se pudo conectar con Telegram` | El token está mal copiado o fue revocado en @BotFather |
 | `Otra API está recibiendo los mensajes de este bot` | Hay dos copias de la API encendidas con el mismo token. Deja solo una |
 
-Cuando la API se despliegue en un servidor (etapa 5) se puede cambiar el sondeo por un webhook, pero no es necesario.
+En producción, con `TELEGRAM_WEBHOOK_SECRET`, Telegram entrega los mensajes por webhook. Ver [despliegue.md](despliegue.md). No uses el mismo token en tu PC y en producción a la vez: crea otro bot para desarrollar.
 
 ## Conectarlo a WhatsApp con Twilio
 

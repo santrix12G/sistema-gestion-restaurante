@@ -252,6 +252,26 @@ describe('Telegram', () => {
     await esperar(async () => ultimoEnviado()[1].includes('preparando'));
     expect(ultimoEnviado()[0]).toBe(chatId);
   });
+
+  it('recibe por webhook solo con el secreto de Telegram', async () => {
+    const actualizacion = {
+      update_id: 900,
+      message: { message_id: 1, from: { id: 800 }, chat: { id: 800, type: 'private' }, contact: { phone_number: '573007770011', user_id: 800 } },
+    };
+    expect((await api().post('/api/webhooks/telegram').send(actualizacion)).status).toBe(403);
+    expect((await api().post('/api/webhooks/telegram').set('X-Telegram-Bot-Api-Secret-Token', 'otro-secreto').send(actualizacion)).status).toBe(403);
+
+    const res = await api().post('/api/webhooks/telegram').set('X-Telegram-Bot-Api-Secret-Token', 'secreto-de-telegram-de-pruebas').send(actualizacion);
+    expect(res.status).toBe(200);
+    const cliente = await esperar(() => prisma.cliente.findUnique({ where: { telegramChatId: '800' } }));
+    expect(cliente.telefono).toBe('+573007770011');
+  });
+});
+
+describe('salud', () => {
+  it('responde sin sesión', async () => {
+    expect((await api().get('/api/salud')).body).toEqual({ estado: 'ok' });
+  });
 });
 
 describe('simulador', () => {

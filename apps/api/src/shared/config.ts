@@ -23,6 +23,10 @@ export interface Config {
   telegram: {
     /** Sin token, el canal de Telegram queda apagado */
     token: string;
+    /** Con secreto, Telegram entrega los mensajes por webhook en lugar de sondeo */
+    secretoWebhook: string;
+    /** Dirección pública de la API, sin /api. En Render se toma de RENDER_EXTERNAL_URL */
+    urlPublica: string;
   };
   nlp: {
     proveedor: 'reglas' | 'openai';
@@ -56,6 +60,13 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (proveedorNlp !== 'reglas' && proveedorNlp !== 'openai') throw new Error('NLP_PROVIDER debe ser reglas u openai');
   if (proveedorNlp === 'openai') exigir(env, ['OPENAI_API_KEY', 'OPENAI_MODEL'], 'NLP_PROVIDER=openai');
 
+  if (env.TELEGRAM_WEBHOOK_SECRET) {
+    if (!/^[A-Za-z0-9_-]{16,256}$/.test(env.TELEGRAM_WEBHOOK_SECRET)) {
+      throw new Error('TELEGRAM_WEBHOOK_SECRET debe tener entre 16 y 256 letras, números, - o _');
+    }
+    if (!env.API_PUBLIC_URL && !env.RENDER_EXTERNAL_URL) throw new Error('TELEGRAM_WEBHOOK_SECRET requiere API_PUBLIC_URL');
+  }
+
   const costoDomicilio = Number(env.COSTO_DOMICILIO ?? 5000);
   if (!Number.isInteger(costoDomicilio) || costoDomicilio < 0) throw new Error('COSTO_DOMICILIO debe ser un entero en pesos');
 
@@ -80,6 +91,8 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     telegram: {
       token: env.TELEGRAM_BOT_TOKEN ?? '',
+      secretoWebhook: env.TELEGRAM_WEBHOOK_SECRET ?? '',
+      urlPublica: (env.API_PUBLIC_URL ?? env.RENDER_EXTERNAL_URL ?? '').replace(/\/+$/, ''),
     },
     nlp: {
       proveedor: proveedorNlp,

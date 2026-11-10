@@ -32,6 +32,8 @@ module.exports = async () => {
     META_VERIFY_TOKEN: 'token-de-verificacion-de-pruebas',
     META_APP_SECRET: 'secreto-de-la-app-de-pruebas',
     TWILIO_AUTH_TOKEN: 'token-de-twilio-de-pruebas',
+    TELEGRAM_WEBHOOK_SECRET: 'secreto-de-telegram-de-pruebas',
+    API_PUBLIC_URL: 'http://localhost',
   });
   const opciones = { cwd: resolve(__dirname, '..'), env: process.env, stdio: 'pipe' };
   execSync('npx prisma migrate deploy', opciones);
