@@ -23,18 +23,18 @@ services:
       # La dirección de la web en Vercel, por ejemplo https://restaurante.vercel.app
       - key: CORS_ORIGINS
         sync: false
+      # WhatsApp directo con Meta. Webhook: https://TU-API/api/webhooks/whatsapp
       - key: WHATSAPP_PROVIDER
-        value: "meta"
+        value: meta
       - key: META_VERIFY_TOKEN
-        value : "sistema-gestion-restaurante"
-      - key : META_PHONE_NUMBER_ID
+        value: sistema-gestion-restaurante
+      - key: META_PHONE_NUMBER_ID
         value: "1352447814628542"
-      - key : META_APP_SECRET
-        sync : false
-      - key : META_ACCESS_TOKEN
-        sync: false 
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_ACCESS_TOKEN
+        sync: false
       - key: NLP_PROVIDER
         value: reglas
       - key: COSTO_DOMICILIO
         value: "5000"
-      
