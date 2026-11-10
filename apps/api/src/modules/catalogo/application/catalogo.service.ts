@@ -10,6 +10,11 @@ export interface ProductoParaVenta {
   disponible: boolean;
 }
 
+export interface ProductoMenu extends ProductoParaVenta {
+  sinonimos: string[];
+  categoria: string;
+}
+
 // El catálogo es CRUD sin reglas de negocio complejas: el servicio usa Prisma directamente,
 // sin la capa de dominio y repositorio que sí tiene pedidos.
 @Injectable()
@@ -41,6 +46,15 @@ export class CatalogoService {
 
   actualizarProducto(id: string, datos: Prisma.ProductoUncheckedUpdateInput) {
     return this.prisma.producto.update({ where: { id }, data: datos });
+  }
+
+  /** Para el chatbot: el menú con sinónimos. Un producto de una categoría inactiva cuenta como no disponible. */
+  async menuParaBot(): Promise<ProductoMenu[]> {
+    const productos = await this.prisma.producto.findMany({
+      orderBy: [{ categoria: { orden: 'asc' } }, { nombre: 'asc' }],
+      select: { id: true, nombre: true, precio: true, disponible: true, sinonimos: true, categoria: { select: { nombre: true, activa: true } } },
+    });
+    return productos.map(({ categoria, disponible, ...p }) => ({ ...p, disponible: disponible && categoria.activa, categoria: categoria.nombre }));
   }
 
   /** Para el módulo de pedidos: el precio siempre sale de aquí, nunca de lo que envía el cliente. */

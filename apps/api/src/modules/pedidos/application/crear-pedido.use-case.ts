@@ -3,15 +3,16 @@ import { CatalogoService } from '../../catalogo';
 import { ClientesService } from '../../clientes';
 import { UsuarioActual } from '../../identidad';
 import { DomainError } from '../../../shared/domain-error';
+import { BusEventos } from '../../../shared/eventos';
 import { PrismaService } from '../../../shared/prisma.service';
-import { calcularTotales } from '../domain/pedido';
-import { PEDIDO_REPOSITORY, PedidoRepository, PedidoVista } from './pedido.repository';
+import { armarPedido, ItemSolicitado } from './lineas-pedido';
+import { aEvento, PEDIDO_REPOSITORY, PedidoRepository, PedidoVista } from './pedido.repository';
 
 export interface SolicitudPedidoLocal {
   tipo: 'MESA' | 'RECOGER';
   mesaId?: string;
   cliente?: { telefono: string; nombre?: string };
-  items: { productoId: string; cantidad: number; notas?: string }[];
+  items: ItemSolicitado[];
   notas?: string;
   claveIdempotencia?: string;
 }
@@ -24,6 +25,7 @@ export class CrearPedidoUseCase {
     private readonly catalogo: CatalogoService,
     private readonly clientes: ClientesService,
     private readonly prisma: PrismaService,
+    private readonly bus: BusEventos,
   ) {}
 
   async ejecutar(solicitud: SolicitudPedidoLocal, usuario: UsuarioActual): Promise<PedidoVista> {
@@ -44,15 +46,8 @@ export class CrearPedidoUseCase {
       clienteId = (await this.clientes.obtenerOCrear(solicitud.cliente.telefono, solicitud.cliente.nombre)).id;
     }
 
-    const productos = await this.catalogo.productosParaVenta([...new Set(solicitud.items.map((i) => i.productoId))]);
-    const lineas = solicitud.items.map((item) => {
-      const producto = productos.get(item.productoId)!;
-      if (!producto.disponible) throw new DomainError('conflicto', `${producto.nombre} no está disponible en este momento`);
-      return { productoId: producto.id, nombre: producto.nombre, precioUnitario: producto.precio, cantidad: item.cantidad, notas: item.notas?.trim() || undefined };
-    });
-    const totales = calcularTotales(lineas);
-
-    return this.pedidos.crear({
+    const totales = await armarPedido(this.catalogo, solicitud.items);
+    const pedido = await this.pedidos.crear({
       tipo: solicitud.tipo,
       canal: 'WEB',
       estado: 'CONFIRMADO',
@@ -63,5 +58,7 @@ export class CrearPedidoUseCase {
       notas: solicitud.notas?.trim() || undefined,
       ...totales,
     });
+    this.bus.publicar('pedido.creado', aEvento(pedido));
+    return pedido;
   }
 }

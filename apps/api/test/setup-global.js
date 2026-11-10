@@ -14,6 +14,8 @@ module.exports = async () => {
     password: 'pruebas',
     port: PUERTO,
     persistent: false,
+    // Igual que Supabase. Sin esto, en Windows la base queda en WIN1252 y rechaza los emojis del bot
+    initdbFlags: ['--encoding=UTF8', '--locale=C'],
     onLog: () => {},
   });
   await pg.initialise();
@@ -26,6 +28,12 @@ module.exports = async () => {
     JWT_SECRET: 'secreto-solo-para-las-pruebas-de-integracion',
     SEED_ADMIN_PASSWORD: 'Admin-pruebas-1',
     SEED_STAFF_PASSWORD: 'Staff-pruebas-1',
+    WHATSAPP_PROVIDER: 'simulado',
+    META_VERIFY_TOKEN: 'token-de-verificacion-de-pruebas',
+    META_APP_SECRET: 'secreto-de-la-app-de-pruebas',
+    TWILIO_AUTH_TOKEN: 'token-de-twilio-de-pruebas',
+    TELEGRAM_WEBHOOK_SECRET: 'secreto-de-telegram-de-pruebas',
+    API_PUBLIC_URL: 'http://localhost',
   });
   const opciones = { cwd: resolve(__dirname, '..'), env: process.env, stdio: 'pipe' };
   execSync('npx prisma migrate deploy', opciones);

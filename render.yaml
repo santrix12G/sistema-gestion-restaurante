@@ -1,0 +1,37 @@
+# Blueprint de Render: despliega la API (apps/api). Ver docs/despliegue.md
+services:
+  - type: web
+    name: restaurante-api
+    runtime: node
+    plan: free
+    # Cerca de Supabase (ca-central-1)
+    region: virginia
+    rootDir: apps/api
+    # Las migraciones se aplican antes de compilar; en el plan gratis no hay paso previo al despliegue
+    buildCommand: npm ci && npm run db:migrate && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/salud
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Supabase > Connect > Session pooler (puerto 5432)
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # La dirección de la web en Vercel, por ejemplo https://restaurante.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+      - key: WHATSAPP_PROVIDER
+        value: simulado
+      - key: NLP_PROVIDER
+        value: reglas
+      - key: COSTO_DOMICILIO
+        value: "5000"
+      # El token de @BotFather. Vacío apaga Telegram
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      # Con este secreto, Telegram entrega por webhook y despierta la API dormida
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false

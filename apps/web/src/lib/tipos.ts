@@ -39,7 +39,7 @@ export interface Pedido {
   id: string;
   numero: number;
   tipo: TipoPedido;
-  canal: 'WEB' | 'MOVIL' | 'WHATSAPP';
+  canal: 'WEB' | 'MOVIL' | 'WHATSAPP' | 'TELEGRAM';
   estado: EstadoPedido;
   mesa: { numero: number } | null;
   cliente: { nombre: string | null; telefono: string } | null;
@@ -48,5 +48,13 @@ export interface Pedido {
   total: number;
   notas: string | null;
   creadoEn: string;
+  entrega: { direccionTexto: string; estado: string } | null;
   detalles: { id: string; nombreProducto: string; precioUnitario: number; cantidad: number; subtotal: number; notas: string | null }[];
+}
+
+export interface MensajeChat {
+  id: string;
+  direccion: 'ENTRANTE' | 'SALIENTE';
+  texto: string;
+  creadoEn: string;
 }

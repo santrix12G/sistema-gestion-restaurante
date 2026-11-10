@@ -7,7 +7,7 @@ import { leerConfig } from './shared/config';
 
 async function iniciar() {
   const config = leerConfig();
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true }); // rawBody: para validar la firma de Meta
   configurarApp(app, config);
   await app.listen(config.puerto);
   console.log(`API lista en http://localhost:${config.puerto}/api`);

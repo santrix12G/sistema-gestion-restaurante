@@ -2,7 +2,8 @@ import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { IsEmail, IsString, MaxLength } from 'class-validator';
 import { AutenticacionService } from '../application/autenticacion.service';
-import { Publico, Usuario, UsuarioActual } from './seguridad';
+import { UsuarioActual } from '../application/verificador-sesion';
+import { Publico, Usuario } from './seguridad';
 
 class LoginDto {
   @IsEmail({}, { message: 'Escribe un correo válido' })

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { destino, hace, pesos } from '@/lib/formato';
 import { Pedido } from '@/lib/tipos';
 
-const CANAL: Record<Pedido['canal'], string> = { WEB: 'Local', MOVIL: 'App', WHATSAPP: 'WhatsApp' };
+const CANAL: Record<Pedido['canal'], string> = { WEB: 'Local', MOVIL: 'App', WHATSAPP: 'WhatsApp', TELEGRAM: 'Telegram' };
 
 export function TarjetaPedido({ pedido, acciones, grande = false }: { pedido: Pedido; acciones?: ReactNode; grande?: boolean }) {
   return (
@@ -14,6 +14,7 @@ export function TarjetaPedido({ pedido, acciones, grande = false }: { pedido: Pe
         </div>
         {!grande && <p className="text-sm font-semibold">{pesos(pedido.total)}</p>}
       </header>
+      {pedido.entrega && <p className="mb-3 text-sm text-stone-700">📍 {pedido.entrega.direccionTexto}</p>}
       <ul className={`mb-3 space-y-1 ${grande ? 'text-base' : 'text-sm'}`}>
         {pedido.detalles.map((d) => (
           <li key={d.id}>
