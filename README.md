@@ -53,7 +53,7 @@ Abre http://localhost:3000. Los usuarios son `admin@restaurante.test`, `mesero@r
 
 | Rol | Pantallas |
 |---|---|
-| Administrador | Todo, incluido crear y editar productos y probar el chatbot en el simulador |
+| Administrador | Todo, incluido crear y editar productos, registrar mesas por tipo (normal M1, larga L1, afuera AF1) y probar el chatbot en el simulador |
 | Mesero | Registrar pedidos y marcarlos pagados o cancelarlos, con su historial del día. Solo ve los que él registró. También marca productos agotados. En la web o en la app |
 | Repartidor | Ve los domicilios disponibles y los que lleva; al tomar uno queda a su nombre y lo marca entregado y pagado o cancelado. Tiene el historial de los que llevó hoy. En la web o en la app |
 

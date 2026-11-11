@@ -63,7 +63,11 @@ async function main() {
   }
 
   for (let numero = 1; numero <= 10; numero++) {
-    await prisma.mesa.upsert({ where: { numero }, create: { numero }, update: {} });
+    await prisma.mesa.upsert({ where: { tipo_numero: { tipo: 'NORMAL', numero } }, create: { numero }, update: {} });
+  }
+  // Dos mesas largas (L1, L2) y dos afuera (AF1, AF2)
+  for (const [tipo, numero, capacidad] of [['LARGA', 1, 8], ['LARGA', 2, 8], ['AFUERA', 1, 4], ['AFUERA', 2, 4]]) {
+    await prisma.mesa.upsert({ where: { tipo_numero: { tipo, numero } }, create: { tipo, numero, capacidad }, update: {} });
   }
 
   const ingredientes = new Map();

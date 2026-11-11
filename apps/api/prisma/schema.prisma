@@ -201,14 +201,27 @@ model Producto {
 
 // ---------- Pedidos ----------
 
+/// Normal (M1), larga (L1) o afuera (AF1)
+enum TipoMesa {
+  NORMAL
+  LARGA
+  AFUERA
+
+  @@map("tipo_mesa")
+}
+
 model Mesa {
-  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  numero    Int     @unique
-  capacidad Int     @default(4)
-  activa    Boolean @default(true)
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo      TipoMesa @default(NORMAL)
+  /// Se repite entre tipos: puede haber una M1 y una L1
+  numero    Int
+  capacidad Int      @default(4)
+  /// Una mesa suspendida no aparece al tomar pedidos
+  activa    Boolean  @default(true)
 
   pedidos Pedido[]
 
+  @@unique([tipo, numero])
   @@map("mesas")
 }
 

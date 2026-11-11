@@ -76,11 +76,6 @@ export class PedidosController {
     private readonly consultar: ConsultarPedidosService,
   ) {}
 
-  @Get('mesas')
-  mesas() {
-    return this.consultar.mesas();
-  }
-
   /**
    * Sin filtro devuelve los pedidos activos. Con ?estados=PAGADO,CANCELADO devuelve los cerrados hoy.
    * Cada rol recibe solo los suyos: ver `alcanceDe` en el dominio.

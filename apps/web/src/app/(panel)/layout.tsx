@@ -10,6 +10,7 @@ const NAVEGACION: { ruta: string; texto: string; roles: Rol[] }[] = [
   { ruta: '/pedidos', texto: 'Pedidos', roles: ['ADMIN', 'MESERO', 'REPARTIDOR'] },
   { ruta: '/pedidos/nuevo', texto: 'Nuevo pedido', roles: ['ADMIN', 'MESERO'] },
   { ruta: '/menu', texto: 'Menú', roles: ['ADMIN', 'MESERO'] },
+  { ruta: '/mesas', texto: 'Mesas', roles: ['ADMIN'] },
   { ruta: '/chatbot', texto: 'Simulador WhatsApp', roles: ['ADMIN'] },
 ];
 

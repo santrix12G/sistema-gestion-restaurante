@@ -1,4 +1,4 @@
-import { EstadoPedido, Pedido } from './tipos';
+import { EstadoPedido, Pedido, TipoMesa } from './tipos';
 
 // Hermes no siempre trae Intl completo: el formato de pesos se arma a mano
 export function pesos(valor: number) {
@@ -23,8 +23,14 @@ export function situacion(pedido: Pedido): { texto: string; tono: 'neutro' | 'av
   return { texto: 'Activo', tono: 'neutro' };
 }
 
+export const NOMBRE_TIPO_MESA: Record<TipoMesa, string> = { NORMAL: 'Normales', LARGA: 'Largas', AFUERA: 'Afuera' };
+const PREFIJO_MESA: Record<TipoMesa, string> = { NORMAL: 'M', LARGA: 'L', AFUERA: 'AF' };
+
+/** Identificador corto de la mesa, como lo dice el personal: M3, L1, AF2 */
+export const codigoMesa = (mesa: { tipo: TipoMesa; numero: number }) => `${PREFIJO_MESA[mesa.tipo]}${mesa.numero}`;
+
 export function destino(pedido: Pedido) {
-  if (pedido.mesa) return `Mesa ${pedido.mesa.numero}`;
+  if (pedido.mesa) return `Mesa ${codigoMesa(pedido.mesa)}`;
   const quien = pedido.cliente?.nombre ?? pedido.cliente?.telefono ?? 'Cliente';
   return pedido.tipo === 'DOMICILIO' ? `Domicilio · ${quien}` : `Recoger · ${quien}`;
 }

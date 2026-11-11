@@ -9,7 +9,7 @@ Corresponde a la Fase 2 de la guía metodológica. El esquema está en [`schema.
 | Personal | `usuarios` | Administradores, meseros y repartidores, con su rol |
 | Clientes | `clientes`, `direcciones` | El cliente se identifica por teléfono y puede tener varias direcciones |
 | Catálogo | `categorias`, `productos` | El menú, con sinónimos para que el chatbot reconozca los productos |
-| Pedidos | `mesas`, `pedidos`, `detalles_pedido`, `historial_estados_pedido` | Pedidos de los tres canales, y quién cambió cada estado y cuándo |
+| Pedidos | `mesas`, `pedidos`, `detalles_pedido`, `historial_estados_pedido` | Pedidos de los tres canales, y quién cambió cada estado y cuándo. Cada mesa tiene tipo (`NORMAL`, `LARGA`, `AFUERA`) y número; su código es la abreviatura más el número (M3, L1, AF2), y el número se repite entre tipos |
 | Entregas | `entregas` | Dirección, repartidor y estado de cada domicilio |
 | Pagos | `pagos` | Efectivo o pasarela en línea |
 | Chatbot | `conversaciones`, `mensajes` | En qué paso va cada cliente en cada canal (WhatsApp o Telegram), lo que lleva pedido y los mensajes |

@@ -1,5 +1,6 @@
 // Puerto de persistencia: los casos de uso dependen de esta interfaz, no de Prisma.
 import { PedidoEvento } from '../../../shared/eventos';
+import { TipoMesa } from '../domain/mesa';
 import { Alcance, EstadoCierre, EstadoPedido, LineaCalculada, TipoPedido } from '../domain/pedido';
 
 export type CanalPedido = 'WEB' | 'MOVIL' | 'WHATSAPP' | 'TELEGRAM';
@@ -10,7 +11,8 @@ export interface PedidoVista {
   tipo: TipoPedido;
   canal: CanalPedido;
   estado: EstadoPedido;
-  mesa: { numero: number } | null;
+  /** Su código (M3, L1, AF2) se arma con `codigoMesa` */
+  mesa: { tipo: TipoMesa; numero: number } | null;
   /** Mesero que lo registró. Vacío si llegó por el chatbot */
   creadoPor: { id: string; nombre: string } | null;
   cliente: { nombre: string | null; telefono: string } | null;
