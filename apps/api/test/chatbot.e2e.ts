@@ -137,6 +137,11 @@ describe('webhook de WhatsApp', () => {
     expect((await cambiar('cocina', 'LISTO')).status).toBe(200);
     expect((await cambiar('repartidor', 'EN_CAMINO')).status).toBe(200);
     await ultimo(/va en camino/);
+    // Quien lo saca a reparto queda a cargo, y la app le muestra barrio y referencia
+    const { body: yo } = await api().get('/api/auth/yo').set(como('repartidor'));
+    const { body: enCamino } = await api().get(`/api/pedidos/${pedido.id}`).set(como('repartidor'));
+    expect(enCamino.entrega.repartidor).toEqual({ id: yo.id, nombre: yo.nombre });
+    expect(Object.keys(enCamino.entrega.direccion).sort()).toEqual(['barrio', 'referencia']);
     expect((await cambiar('repartidor', 'ENTREGADO')).status).toBe(200);
     await ultimo(/entregado/);
 

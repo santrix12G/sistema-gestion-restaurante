@@ -8,7 +8,7 @@ import { armarPedido, ItemSolicitado } from './lineas-pedido';
 import { aEvento, PEDIDO_REPOSITORY, PedidoRepository, PedidoVista } from './pedido.repository';
 
 export interface SolicitudPedidoCliente {
-  canal: 'WHATSAPP' | 'TELEGRAM' | 'MOVIL';
+  canal: 'WHATSAPP' | 'TELEGRAM';
   clienteId: string;
   tipo: 'DOMICILIO' | 'RECOGER';
   direccion?: string;
@@ -19,7 +19,7 @@ export interface SolicitudPedidoCliente {
 }
 
 /**
- * Pedido que hace el propio cliente, por WhatsApp o, más adelante, por la app móvil.
+ * Pedido que hace el propio cliente por el chatbot (WhatsApp o Telegram).
  * Por ahora el pago es en efectivo al recibir, así que entra confirmado.
  */
 @Injectable()

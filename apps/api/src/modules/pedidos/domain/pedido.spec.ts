@@ -58,6 +58,13 @@ describe('validarCambioEstado', () => {
     expect(permite('LISTO', 'ENTREGADO', 'ADMIN', 'DOMICILIO')).toBe(false);
   });
 
+  it('solo el repartidor que sacó el domicilio puede entregarlo', () => {
+    const enCamino = { estado: 'EN_CAMINO' as const, tipo: 'DOMICILIO' as const, repartidorId: 'repartidor-1' };
+    expect(error(() => validarCambioEstado(enCamino, 'ENTREGADO', 'REPARTIDOR', 'repartidor-1'))).toBeUndefined();
+    expect(error(() => validarCambioEstado(enCamino, 'ENTREGADO', 'REPARTIDOR', 'repartidor-2'))?.message).toMatch(/otro repartidor/);
+    expect(error(() => validarCambioEstado(enCamino, 'ENTREGADO', 'ADMIN', 'admin-1'))).toBeUndefined();
+  });
+
   it('aplica los permisos por rol', () => {
     expect(error(() => validarCambioEstado(pedido('CONFIRMADO'), 'EN_PREPARACION', 'MESERO'))?.tipo).toBe('prohibido');
     expect(permite('CONFIRMADO', 'CANCELADO', 'COCINA')).toBe(false);

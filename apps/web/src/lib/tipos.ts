@@ -48,7 +48,13 @@ export interface Pedido {
   total: number;
   notas: string | null;
   creadoEn: string;
-  entrega: { direccionTexto: string; estado: string } | null;
+  entrega: {
+    direccionTexto: string;
+    estado: string;
+    direccion: { barrio: string | null; referencia: string | null };
+    /** Quién lo sacó a reparto: solo esa persona puede marcarlo entregado */
+    repartidor: { id: string; nombre: string } | null;
+  } | null;
   detalles: { id: string; nombreProducto: string; precioUnitario: number; cantidad: number; subtotal: number; notas: string | null }[];
 }
 

@@ -95,6 +95,16 @@ describe('pedidos', () => {
     expect(mesas[0].pedidosActivos).toBe(1);
   });
 
+  it('marca con el canal MOVIL los pedidos de la app y rechaza otros canales', async () => {
+    const gaseosa = await producto('Gaseosa');
+    const enviar = (canal: string) => api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId, canal, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
+
+    const movil = await enviar('MOVIL');
+    expect(movil.status).toBe(201);
+    expect(movil.body.canal).toBe('MOVIL');
+    expect((await enviar('WHATSAPP')).status).toBe(400);
+  });
+
   it('un reintento con la misma clave no duplica el pedido', async () => {
     const gaseosa = await producto('Gaseosa');
     const enviar = () => api().post('/api/pedidos').set(como('mesero')).set('Idempotency-Key', 'clave-de-prueba-1').send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });

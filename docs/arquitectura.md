@@ -5,7 +5,8 @@ El backend es un **monolito modular**: una sola aplicación NestJS, dividida en 
 ```
 apps/
   api/   Backend NestJS (el monolito)
-  web/   Aplicación web del personal (Next.js + React)
+  web/     Aplicación web del personal (Next.js + React)
+  mobile/  App Android de meseros y repartidores (React Native + Expo). Usa la misma API
 ```
 
 ## Módulos del backend
