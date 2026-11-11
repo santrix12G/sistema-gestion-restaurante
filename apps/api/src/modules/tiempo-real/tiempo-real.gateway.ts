@@ -8,7 +8,7 @@ import { VerificadorSesion } from '../identidad';
 const SALA_PERSONAL = 'personal';
 
 /**
- * Avisa al instante a la web del personal cuando entra un pedido o cambia de estado.
+ * Avisa al instante a la web y la app del personal cuando entra un pedido, sale a reparto o se cierra.
  * La web se conecta con su token, y solo recibe avisos si la sesión es válida.
  */
 @WebSocketGateway({
@@ -29,6 +29,9 @@ export class TiempoRealGateway implements OnGatewayConnection, OnModuleInit {
     });
     this.bus.suscribir('pedido.estado_cambiado', (e) => {
       this.servidor.to(SALA_PERSONAL).emit('pedido', { ...e, motivo: 'estado' });
+    });
+    this.bus.suscribir('pedido.en_camino', (e) => {
+      this.servidor.to(SALA_PERSONAL).emit('pedido', { ...e, motivo: 'en_camino' });
     });
   }
 

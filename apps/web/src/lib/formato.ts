@@ -11,15 +11,11 @@ export function hace(fecha: string, ahora = Date.now()) {
   return `hace ${Math.floor(minutos / 60)} h ${minutos % 60} min`;
 }
 
-export const NOMBRE_ESTADO: Record<EstadoPedido, string> = {
-  PENDIENTE: 'Pendiente',
-  CONFIRMADO: 'Confirmado',
-  EN_PREPARACION: 'En preparación',
-  LISTO: 'Listo',
-  EN_CAMINO: 'En camino',
-  ENTREGADO: 'Entregado',
-  CANCELADO: 'Cancelado',
-};
+export const NOMBRE_ESTADO: Record<EstadoPedido, string> = { ACTIVO: 'Activo', PAGADO: 'Pagado', CANCELADO: 'Cancelado' };
+
+export function hora(fecha: string) {
+  return new Date(fecha).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
+}
 
 export function destino(pedido: Pedido) {
   if (pedido.mesa) return `Mesa ${pedido.mesa.numero}`;

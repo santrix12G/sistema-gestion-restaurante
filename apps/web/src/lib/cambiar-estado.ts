@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 import { llamar, mensajeDeError } from './api';
-import { EstadoPedido } from './tipos';
 
-/** Cambia el estado de un pedido y avisa si la API lo rechaza. `alTerminar` recarga la lista. */
+/** Cierra un pedido o toma un domicilio, y avisa si la API lo rechaza. `alTerminar` recarga la lista. */
 export function useCambiarEstado(alTerminar: () => Promise<void>) {
   const [ocupado, setOcupado] = useState<string>();
   const [error, setError] = useState<string>();
 
-  async function cambiar(id: string, estado: EstadoPedido) {
+  async function ejecutar(id: string, accion: () => Promise<unknown>) {
     setOcupado(id);
     setError(undefined);
     try {
-      await llamar(`/pedidos/${id}/estado`, { metodo: 'PATCH', cuerpo: { estado } });
+      await accion();
     } catch (e) {
       setError(mensajeDeError(e));
     } finally {
@@ -22,5 +21,9 @@ export function useCambiarEstado(alTerminar: () => Promise<void>) {
     }
   }
 
-  return { cambiar, ocupado, error };
+  const cambiar = (id: string, estado: 'PAGADO' | 'CANCELADO') =>
+    ejecutar(id, () => llamar(`/pedidos/${id}/estado`, { metodo: 'PATCH', cuerpo: { estado } }));
+  const tomar = (id: string) => ejecutar(id, () => llamar(`/pedidos/${id}/tomar`, { metodo: 'POST' }));
+
+  return { cambiar, tomar, ocupado, error };
 }

@@ -23,7 +23,7 @@ beforeAll(async () => {
   configurarApp(app, leerConfig());
   await app.init();
 
-  for (const [rol, password] of [['admin', 'Admin-pruebas-1'], ['mesero', 'Staff-pruebas-1'], ['cocina', 'Staff-pruebas-1'], ['repartidor', 'Staff-pruebas-1']]) {
+  for (const [rol, password] of [['admin', 'Admin-pruebas-1'], ['mesero', 'Staff-pruebas-1'], ['repartidor', 'Staff-pruebas-1']]) {
     const res = await api().post('/api/auth/login').send({ email: `${rol}@restaurante.test`, password });
     expect(res.status).toBe(200);
     tokens[rol] = res.body.token;
@@ -46,9 +46,14 @@ describe('identidad', () => {
     expect(res.body.mensaje).toMatch(/Inicia sesión/);
   });
 
+  it('ya no existe el usuario de cocina', async () => {
+    const res = await api().post('/api/auth/login').send({ email: 'cocina@restaurante.test', password: 'Staff-pruebas-1' });
+    expect(res.status).toBe(401);
+  });
+
   it('devuelve el usuario de la sesión', async () => {
-    const res = await api().get('/api/auth/yo').set(como('cocina'));
-    expect(res.body).toMatchObject({ email: 'cocina@restaurante.test', rol: 'COCINA' });
+    const res = await api().get('/api/auth/yo').set(como('repartidor'));
+    expect(res.body).toMatchObject({ email: 'repartidor@restaurante.test', rol: 'REPARTIDOR' });
     expect(res.body.passwordHash).toBeUndefined();
   });
 });
@@ -88,8 +93,9 @@ describe('pedidos', () => {
       .send({ tipo: 'MESA', mesaId, items: [{ productoId: hamburguesa.id, cantidad: 2, notas: 'sin cebolla' }, { productoId: limonada.id, cantidad: 1 }] });
 
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ tipo: 'MESA', canal: 'WEB', estado: 'CONFIRMADO', subtotal: 42000, total: 42000, mesa: { numero: 1 } });
+    expect(res.body).toMatchObject({ tipo: 'MESA', canal: 'WEB', estado: 'ACTIVO', subtotal: 42000, total: 42000, mesa: { numero: 1 } });
     expect(res.body.detalles).toHaveLength(2);
+    expect(res.body.creadoPor).toEqual({ id: expect.any(String), nombre: 'Mesero' });
 
     const { body: mesas } = await api().get('/api/mesas').set(como('mesero'));
     expect(mesas[0].pedidosActivos).toBe(1);
@@ -128,41 +134,47 @@ describe('pedidos', () => {
     const sinMesa = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', items: [{ productoId: carne.id, cantidad: 1 }] });
     expect(sinMesa.status).toBe(400);
 
-    expect((await api().patch(`/api/catalogo/productos/${carne.id}/disponibilidad`).set(como('cocina')).send({ disponible: false })).status).toBe(200);
+    expect((await api().patch(`/api/catalogo/productos/${carne.id}/disponibilidad`).set(como('mesero')).send({ disponible: false })).status).toBe(200);
     const agotado = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId, items: [{ productoId: carne.id, cantidad: 1 }] });
     expect(agotado.status).toBe(409);
     expect(agotado.body.mensaje).toMatch(/Carne asada no está disponible/);
   });
 
-  it('cocina no puede crear pedidos', async () => {
+  it('el repartidor no puede crear pedidos', async () => {
     const gaseosa = await producto('Gaseosa');
-    const res = await api().post('/api/pedidos').set(como('cocina')).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
+    const res = await api().post('/api/pedidos').set(como('repartidor')).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
     expect(res.status).toBe(403);
   });
 
-  it('recorre los estados con el rol que corresponde', async () => {
+  it('el mesero cobra su pedido, que pasa a la lista de cerrados de hoy', async () => {
     const gaseosa = await producto('Gaseosa');
     const { body: pedido } = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
     const cambiar = (rol: string, estado: string) => api().patch(`/api/pedidos/${pedido.id}/estado`).set(como(rol)).send({ estado });
 
-    expect((await cambiar('mesero', 'EN_PREPARACION')).status).toBe(403);
-    expect((await cambiar('cocina', 'EN_PREPARACION')).body.estado).toBe('EN_PREPARACION');
-    expect((await cambiar('mesero', 'CANCELADO')).status).toBe(409);
-    expect((await cambiar('cocina', 'LISTO')).body.estado).toBe('LISTO');
-    expect((await cambiar('repartidor', 'ENTREGADO')).status).toBe(403);
-    expect((await cambiar('mesero', 'ENTREGADO')).body.estado).toBe('ENTREGADO');
+    expect((await cambiar('mesero', 'LISTO')).status).toBe(400);
+    expect((await cambiar('repartidor', 'PAGADO')).status).toBe(403);
+    expect((await cambiar('mesero', 'PAGADO')).body.estado).toBe('PAGADO');
+    expect((await cambiar('admin', 'CANCELADO')).status).toBe(409);
 
-    const { body: activos } = await api().get('/api/pedidos').set(como('cocina'));
+    const { body: activos } = await api().get('/api/pedidos').set(como('mesero'));
     expect(activos.some((p: { id: string }) => p.id === pedido.id)).toBe(false);
-    const { body: entregados } = await api().get('/api/pedidos?estados=ENTREGADO').set(como('cocina'));
-    expect(entregados.some((p: { id: string }) => p.id === pedido.id)).toBe(true);
+    const { body: cerrados } = await api().get('/api/pedidos?estados=PAGADO,CANCELADO').set(como('mesero'));
+    expect(cerrados.some((p: { id: string }) => p.id === pedido.id)).toBe(true);
+    expect((await api().get('/api/pedidos?estados=LISTO').set(como('mesero'))).status).toBe(400);
+  });
+
+  it('el administrador puede cancelar el pedido de un mesero', async () => {
+    const gaseosa = await producto('Gaseosa');
+    const { body: pedido } = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
+    const res = await api().patch(`/api/pedidos/${pedido.id}/estado`).set(como('admin')).send({ estado: 'CANCELADO' });
+    expect(res.body.estado).toBe('CANCELADO');
   });
 
   it('si dos personas cambian el mismo pedido a la vez, solo una lo logra', async () => {
     const gaseosa = await producto('Gaseosa');
     const { body: pedido } = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
     const respuestas = await Promise.all(
-      [1, 2, 3].map(() => api().patch(`/api/pedidos/${pedido.id}/estado`).set(como('cocina')).send({ estado: 'EN_PREPARACION' })),
+      [1, 2, 3].map(() => api().patch(`/api/pedidos/${pedido.id}/estado`).set(como('mesero')).send({ estado: 'PAGADO' })),
     );
     expect(respuestas.map((r) => r.status).sort()).toEqual([200, 409, 409]);
   });

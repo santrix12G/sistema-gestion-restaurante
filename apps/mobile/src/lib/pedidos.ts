@@ -50,7 +50,7 @@ export function usePedidos(estados: EstadoPedido[]) {
     }, [cargar]),
   );
 
-  // Avisos al instante cuando entra un pedido o cambia de estado
+  // Avisos al instante cuando entra un pedido, sale a reparto o se cierra
   const cargarRef = useRef(cargar);
   cargarRef.current = cargar;
   const token = sesion?.token;
@@ -70,12 +70,21 @@ export function usePedidos(estados: EstadoPedido[]) {
   return { pedidos, error, recargando, recargar, cargar };
 }
 
-/** Cambia el estado de un pedido. Devuelve el mensaje de error, o null si salió bien. */
-export async function cambiarEstado(pedido: Pedido, estado: EstadoPedido): Promise<string | null> {
+async function intentar(accion: () => Promise<unknown>): Promise<string | null> {
   try {
-    await llamar(`/pedidos/${pedido.id}/estado`, { metodo: 'PATCH', cuerpo: { estado } });
+    await accion();
     return null;
   } catch (e) {
     return mensajeDeError(e);
   }
+}
+
+/** Marca el pedido como pagado o cancelado. Devuelve el mensaje de error, o null si salió bien. */
+export function cerrarPedido(pedido: Pedido, estado: 'PAGADO' | 'CANCELADO') {
+  return intentar(() => llamar(`/pedidos/${pedido.id}/estado`, { metodo: 'PATCH', cuerpo: { estado } }));
+}
+
+/** El repartidor toma el domicilio: queda a su nombre. Devuelve el mensaje de error, o null si salió bien. */
+export function tomarDomicilio(pedido: Pedido) {
+  return intentar(() => llamar(`/pedidos/${pedido.id}/tomar`, { metodo: 'POST' }));
 }

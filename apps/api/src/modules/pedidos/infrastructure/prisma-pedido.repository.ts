@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma.service';
-import { EstadoPedido } from '../domain/pedido';
+import { EstadoCierre, EstadoPedido } from '../domain/pedido';
 import { NuevoPedido, PedidoRepository, PedidoVista } from '../application/pedido.repository';
 
 const VISTA = {
@@ -17,6 +17,7 @@ const VISTA = {
   creadoEn: true,
   actualizadoEn: true,
   mesa: { select: { numero: true } },
+  creadoPor: { select: { id: true, nombre: true } },
   cliente: { select: { nombre: true, telefono: true } },
   entrega: {
     select: {
@@ -50,7 +51,7 @@ export class PrismaPedidoRepository implements PedidoRepository {
               notas: l.notas,
             })),
           },
-          historial: { create: { estadoNuevo: pedido.estado, usuarioId: creadoPorId } },
+          historial: { create: { estadoNuevo: 'ACTIVO', usuarioId: creadoPorId } },
         },
         select: VISTA,
       });
@@ -72,24 +73,32 @@ export class PrismaPedidoRepository implements PedidoRepository {
     return this.prisma.pedido.findUnique({ where: { id }, select: VISTA });
   }
 
-  listar(estados: EstadoPedido[]) {
-    return this.prisma.pedido.findMany({ where: { estado: { in: estados } }, orderBy: { creadoEn: 'asc' }, select: VISTA, take: 200 });
+  listar({ estados, desde }: { estados: EstadoPedido[]; desde?: Date }) {
+    return this.prisma.pedido.findMany({
+      where: { estado: { in: estados }, ...(desde && { creadoEn: { gte: desde } }) },
+      orderBy: { creadoEn: desde ? 'desc' : 'asc' },
+      select: VISTA,
+      take: 300,
+    });
   }
 
-  async cambiarEstado(id: string, desde: EstadoPedido, hasta: EstadoPedido, usuarioId: string, repartidorId?: string): Promise<boolean> {
+  async cerrar(id: string, hasta: EstadoCierre, usuarioId: string): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.pedido.updateMany({ where: { id, estado: desde }, data: { estado: hasta } });
+      const { count } = await tx.pedido.updateMany({ where: { id, estado: 'ACTIVO' }, data: { estado: hasta } });
       if (count === 0) return false;
-      await tx.historialEstadoPedido.create({ data: { pedidoId: id, estadoAntes: desde, estadoNuevo: hasta, usuarioId } });
-      // La entrega de un domicilio sigue al pedido
-      if (hasta === 'EN_CAMINO') {
-        await tx.entrega.updateMany({
-          where: { pedidoId: id },
-          data: { estado: 'EN_CAMINO', ...(repartidorId && { repartidorId, asignadaEn: new Date() }) },
-        });
-      }
-      if (hasta === 'ENTREGADO') await tx.entrega.updateMany({ where: { pedidoId: id }, data: { estado: 'ENTREGADA', entregadaEn: new Date() } });
+      await tx.historialEstadoPedido.create({ data: { pedidoId: id, estadoAntes: 'ACTIVO', estadoNuevo: hasta, usuarioId } });
+      // La entrega de un domicilio sigue al pedido: pagado es entregado; cancelado en camino es una entrega fallida
+      if (hasta === 'PAGADO') await tx.entrega.updateMany({ where: { pedidoId: id }, data: { estado: 'ENTREGADA', entregadaEn: new Date() } });
+      else await tx.entrega.updateMany({ where: { pedidoId: id, repartidorId: { not: null } }, data: { estado: 'FALLIDA' } });
       return true;
     });
+  }
+
+  async tomarDomicilio(id: string, repartidorId: string): Promise<boolean> {
+    const { count } = await this.prisma.entrega.updateMany({
+      where: { pedidoId: id, repartidorId: null, pedido: { estado: 'ACTIVO' } },
+      data: { repartidorId, estado: 'EN_CAMINO', asignadaEn: new Date() },
+    });
+    return count > 0;
   }
 }

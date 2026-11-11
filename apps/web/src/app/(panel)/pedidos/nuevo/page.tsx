@@ -175,7 +175,7 @@ export default function NuevoPedido() {
             <span>{pesos(total)}</span>
           </div>
           <Aviso>{error}</Aviso>
-          <Boton onClick={enviar} disabled={enviando} className="w-full py-3">{enviando ? 'Enviando…' : 'Enviar a cocina'}</Boton>
+          <Boton onClick={enviar} disabled={enviando} className="w-full py-3">{enviando ? 'Enviando…' : 'Registrar pedido'}</Boton>
         </aside>
       </div>
     </>

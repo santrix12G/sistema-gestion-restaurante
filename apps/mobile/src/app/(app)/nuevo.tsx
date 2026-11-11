@@ -17,7 +17,7 @@ interface Menu {
   mesas: Mesa[];
 }
 
-/** Tomar un pedido en tres pasos: a quién va, qué lleva y revisar antes de enviarlo a cocina. */
+/** Tomar un pedido en tres pasos: a quién va, qué lleva y revisar antes de registrarlo. */
 export default function NuevoPedido() {
   const router = useRouter();
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -32,10 +32,10 @@ export default function NuevoPedido() {
   const [notas, setNotas] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Una clave por pedido: si la red falla y se vuelve a enviar, cocina no lo recibe dos veces
+  // Una clave por pedido: si la red falla y se vuelve a enviar, el pedido no queda dos veces
   const clave = useRef(nuevaClave());
 
-  // El menú y las mesas se actualizan cada vez que se abre la pestaña (por si cocina marcó algo agotado)
+  // El menú y las mesas se actualizan cada vez que se abre la pestaña (por si alguien marcó algo agotado)
   useFocusEffect(
     useCallback(() => {
       Promise.all([
@@ -105,7 +105,7 @@ export default function NuevoPedido() {
         },
       });
       reiniciar();
-      avisar(`Pedido #${pedido.numero} enviado`, 'Ya está en la pantalla de cocina.');
+      avisar(`Pedido #${pedido.numero} registrado`, 'Ya aparece en tus pedidos activos.');
       router.navigate('/pedidos');
     } catch (e) {
       setError(mensajeDeError(e));
@@ -209,7 +209,7 @@ export default function NuevoPedido() {
                 <Text style={{ fontSize: 18, fontWeight: '800', color: COLOR.texto }}>{pesos(total)}</Text>
               </View>
             </View>
-            <Campo etiqueta="Nota para cocina (opcional)" value={notas} onChangeText={setNotas} placeholder="Ej.: traer los jugos primero" maxLength={300} multiline />
+            <Campo etiqueta="Nota del pedido (opcional)" value={notas} onChangeText={setNotas} placeholder="Ej.: traer los jugos primero" maxLength={300} multiline />
             <Aviso>{error}</Aviso>
           </>
         ) : null}
@@ -235,7 +235,7 @@ export default function NuevoPedido() {
             </Boton>
           ) : (
             <Boton variante="exito" alPulsar={enviar} ocupado={enviando} icono={<Ionicons name="send" size={18} color="#fff" />}>
-              {`Enviar a cocina · ${pesos(total)}`}
+              {`Registrar pedido · ${pesos(total)}`}
             </Boton>
           )}
         </View>

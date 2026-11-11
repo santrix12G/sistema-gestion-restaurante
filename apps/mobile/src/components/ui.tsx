@@ -1,7 +1,5 @@
 import { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
-import { EstadoPedido } from '@/lib/tipos';
-import { NOMBRE_ESTADO } from '@/lib/formato';
 
 // Mismos colores que la web
 export const COLOR = {
@@ -105,18 +103,19 @@ export function Seccion({ titulo, cantidad }: { titulo: string; cantidad?: numbe
   );
 }
 
-const COLOR_ESTADO: Partial<Record<EstadoPedido, { fondo: string; texto: string }>> = {
-  CONFIRMADO: { fondo: '#e7e5e4', texto: '#44403c' },
-  EN_PREPARACION: { fondo: '#fef3c7', texto: '#92400e' },
-  LISTO: { fondo: '#d1fae5', texto: '#065f46' },
-  EN_CAMINO: { fondo: '#dbeafe', texto: '#1e40af' },
+const TONOS = {
+  neutro: { fondo: '#e7e5e4', texto: '#44403c' },
+  aviso: { fondo: '#fef3c7', texto: '#92400e' },
+  info: { fondo: '#dbeafe', texto: '#1e40af' },
+  exito: { fondo: '#d1fae5', texto: '#065f46' },
+  peligro: { fondo: '#fee2e2', texto: '#991b1b' },
 };
 
-export function Insignia({ estado }: { estado: EstadoPedido }) {
-  const c = COLOR_ESTADO[estado] ?? { fondo: '#e7e5e4', texto: '#44403c' };
+export function Insignia({ texto, tono = 'neutro' }: { texto: string; tono?: keyof typeof TONOS }) {
+  const c = TONOS[tono];
   return (
     <View style={[estilos.insignia, { backgroundColor: c.fondo }]}>
-      <Text style={{ color: c.texto, fontSize: 12, fontWeight: '700' }}>{NOMBRE_ESTADO[estado]}</Text>
+      <Text style={{ color: c.texto, fontSize: 12, fontWeight: '700' }}>{texto}</Text>
     </View>
   );
 }

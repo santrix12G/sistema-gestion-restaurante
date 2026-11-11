@@ -1,6 +1,6 @@
 # App móvil del personal
 
-Aplicación Android para meseros y repartidores, hecha con React Native y Expo (SDK 58). Los clientes no la usan, porque piden por el chatbot. Cocina y la administración del menú siguen en la web.
+Aplicación Android para meseros y repartidores, hecha con React Native y Expo (SDK 58). Los clientes no la usan, porque piden por el chatbot, y los cocineros tampoco. La administración del menú sigue en la web.
 
 Usa la misma API, el mismo inicio de sesión y los mismos avisos en tiempo real que la web. El código está en `apps/mobile`.
 
@@ -8,17 +8,15 @@ Usa la misma API, el mismo inicio de sesión y los mismos avisos en tiempo real 
 
 | Rol | Pestaña | Qué hace |
 |---|---|---|
-| Mesero | Pedidos | Pedidos de mesa y para recoger. Arriba, los listos para entregar; abajo, los que siguen en cocina. El celular vibra cuando cocina termina uno. Permite marcar entregado, y cancelar antes de que cocina empiece |
+| Mesero | Pedidos | Sus pedidos activos de mesa y para recoger, para marcarlos pagados o cancelarlos |
 | Mesero | Nuevo pedido | En tres pasos: mesa o para recoger (con el teléfono del cliente), productos con notas y revisión. Los agotados no se pueden elegir |
-| Repartidor | Domicilios | Arriba, los que lleva él; abajo, los listos para salir. Muestra la dirección, el barrio, la referencia, el teléfono y cuánto cobrar. Tiene botones para llamar y abrir el mapa |
-| Administrador | Las tres | Además ve los domicilios que llevan otros repartidores |
-
-El rol de cocina no puede entrar a la app.
+| Repartidor | Domicilios | Arriba, los que lleva él; abajo, los disponibles para llevar (el celular vibra cuando llega uno). Muestra la dirección, el barrio, la referencia, el teléfono y cuánto cobrar. Tiene botones para llamar y abrir el mapa |
+| Administrador | Las tres | Además ve los pedidos de otros meseros y del chatbot, y los domicilios que llevan otros repartidores, y puede cerrarlos |
 
 **Reglas:**
-- Al pulsar **Salir a entregar**, el domicilio queda asignado a ese repartidor. Solo él, o un administrador, puede marcarlo entregado.
+- Al pulsar **Llevar domicilio**, el domicilio queda asignado a ese repartidor y el cliente recibe el aviso. Solo él, o un administrador, puede marcarlo entregado y pagado, o cancelarlo.
 - Los pedidos creados desde la app se guardan con el canal `MOVIL`, para distinguirlos en los reportes.
-- Cada pedido lleva una clave de idempotencia: si la red falla y se reintenta, cocina no lo recibe dos veces.
+- Cada pedido lleva una clave de idempotencia: si la red falla y se reintenta, el pedido no queda dos veces.
 - La sesión se guarda cifrada en el celular con `expo-secure-store` y dura 12 horas, un turno.
 
 ## Probarla en tu celular

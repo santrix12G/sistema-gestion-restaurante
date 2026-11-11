@@ -13,14 +13,17 @@ export interface PedidoEvento {
 
 export interface EventosDominio {
   'pedido.creado': PedidoEvento;
+  /** El pedido se pagó o se canceló */
   'pedido.estado_cambiado': PedidoEvento & { estadoAnterior: string };
+  /** Un repartidor tomó el domicilio y va hacia la dirección del cliente */
+  'pedido.en_camino': PedidoEvento & { repartidor: string };
 }
 
 type Manejador<T> = (evento: T) => void | Promise<void>;
 
 /**
  * Bus de eventos en memoria. Un módulo publica lo que pasó y los demás reaccionan sin conocerse:
- * pedidos no sabe que existen el chatbot ni la pantalla de cocina.
+ * pedidos no sabe que existen el chatbot ni la web del personal.
  * Los eventos se pierden si el proceso se reinicia justo después de publicarlos; ver docs/arquitectura.md.
  */
 @Injectable()

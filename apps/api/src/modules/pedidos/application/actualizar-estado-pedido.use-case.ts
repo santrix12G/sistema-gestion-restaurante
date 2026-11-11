@@ -2,9 +2,17 @@ import { Inject, Injectable } from '@nestjs/common';
 import { UsuarioActual } from '../../identidad';
 import { DomainError } from '../../../shared/domain-error';
 import { BusEventos } from '../../../shared/eventos';
-import { EstadoPedido, validarCambioEstado } from '../domain/pedido';
+import { EstadoCierre, PedidoParaPermisos, validarCierre, validarTomaDomicilio } from '../domain/pedido';
 import { aEvento, PEDIDO_REPOSITORY, PedidoRepository, PedidoVista } from './pedido.repository';
 
+const paraPermisos = (p: PedidoVista): PedidoParaPermisos => ({
+  estado: p.estado,
+  tipo: p.tipo,
+  creadoPorId: p.creadoPor?.id ?? null,
+  repartidorId: p.entrega?.repartidor?.id ?? null,
+});
+
+/** Marca un pedido como pagado o cancelado, y saca domicilios a reparto. */
 @Injectable()
 export class ActualizarEstadoPedidoUseCase {
   constructor(
@@ -12,19 +20,31 @@ export class ActualizarEstadoPedidoUseCase {
     private readonly bus: BusEventos,
   ) {}
 
-  async ejecutar(id: string, nuevo: EstadoPedido, usuario: UsuarioActual): Promise<PedidoVista> {
-    const pedido = await this.pedidos.obtener(id);
-    if (!pedido) throw new DomainError('no_encontrado', 'El pedido no existe');
-
-    validarCambioEstado({ ...pedido, repartidorId: pedido.entrega?.repartidor?.id }, nuevo, usuario.rol, usuario.id);
-    // El repartidor que saca el domicilio queda a cargo de entregarlo
-    const repartidorId = nuevo === 'EN_CAMINO' && usuario.rol === 'REPARTIDOR' ? usuario.id : undefined;
+  async ejecutar(id: string, nuevo: EstadoCierre, usuario: UsuarioActual): Promise<PedidoVista> {
+    const pedido = await this.obtener(id);
+    validarCierre(paraPermisos(pedido), nuevo, usuario.rol, usuario.id);
     // Si dos personas actúan a la vez sobre el mismo pedido, solo gana la primera
-    const cambiado = await this.pedidos.cambiarEstado(id, pedido.estado, nuevo, usuario.id, repartidorId);
-    if (!cambiado) throw new DomainError('conflicto', 'Otra persona cambió este pedido. Actualiza la pantalla');
+    if (!(await this.pedidos.cerrar(id, nuevo, usuario.id))) throw new DomainError('conflicto', 'Otra persona cambió este pedido. Actualiza la pantalla');
 
-    const actualizado = (await this.pedidos.obtener(id))!;
+    const actualizado = await this.obtener(id);
     this.bus.publicar('pedido.estado_cambiado', { ...aEvento(actualizado), estadoAnterior: pedido.estado });
     return actualizado;
+  }
+
+  /** El repartidor toma el domicilio: queda a su nombre y solo él puede cerrarlo. */
+  async tomarDomicilio(id: string, usuario: UsuarioActual): Promise<PedidoVista> {
+    const pedido = await this.obtener(id);
+    validarTomaDomicilio(paraPermisos(pedido), usuario.rol, usuario.id);
+    if (!(await this.pedidos.tomarDomicilio(id, usuario.id))) throw new DomainError('conflicto', 'Otro repartidor ya tomó este domicilio. Actualiza la pantalla');
+
+    const actualizado = await this.obtener(id);
+    this.bus.publicar('pedido.en_camino', { ...aEvento(actualizado), repartidor: usuario.nombre });
+    return actualizado;
+  }
+
+  private async obtener(id: string) {
+    const pedido = await this.pedidos.obtener(id);
+    if (!pedido) throw new DomainError('no_encontrado', 'El pedido no existe');
+    return pedido;
   }
 }

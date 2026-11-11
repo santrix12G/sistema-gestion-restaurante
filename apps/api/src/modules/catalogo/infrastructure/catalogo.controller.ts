@@ -96,8 +96,8 @@ export class CatalogoController {
     return this.catalogo.actualizarProducto(id, datos);
   }
 
-  // Cocina también puede marcar un plato como agotado
-  @Roles('ADMIN', 'COCINA')
+  // El mesero también puede marcar un plato como agotado, cuando la cocina se lo avisa
+  @Roles('ADMIN', 'MESERO')
   @Patch('productos/:id/disponibilidad')
   cambiarDisponibilidad(@Param('id', ParseUUIDPipe) id: string, @Body() { disponible }: DisponibilidadDto) {
     return this.catalogo.actualizarProducto(id, { disponible });

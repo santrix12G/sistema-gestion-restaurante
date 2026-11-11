@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainError } from '../../../shared/domain-error';
 import { PrismaService } from '../../../shared/prisma.service';
-import { ESTADOS_ACTIVOS, EstadoPedido } from '../domain/pedido';
+import { inicioDelDia } from '../../../shared/fecha';
+import { EstadoPedido } from '../domain/pedido';
 import { PEDIDO_REPOSITORY, PedidoRepository } from './pedido.repository';
 
 @Injectable()
@@ -11,8 +12,10 @@ export class ConsultarPedidosService {
     private readonly prisma: PrismaService,
   ) {}
 
-  listar(estados: EstadoPedido[] = ESTADOS_ACTIVOS) {
-    return this.pedidos.listar(estados);
+  /** Los pedidos activos, todos. Los pagados y cancelados, solo los de hoy. */
+  listar(estados: EstadoPedido[] = ['ACTIVO']) {
+    const soloActivos = estados.every((e) => e === 'ACTIVO');
+    return this.pedidos.listar({ estados, desde: soloActivos ? undefined : inicioDelDia() });
   }
 
   async obtener(id: string) {
@@ -21,12 +24,12 @@ export class ConsultarPedidosService {
     return pedido;
   }
 
-  /** Mesas activas, con cuántos pedidos sin entregar tiene cada una. */
+  /** Mesas activas, con cuántos pedidos abiertos tiene cada una. */
   async mesas() {
     const mesas = await this.prisma.mesa.findMany({
       where: { activa: true },
       orderBy: { numero: 'asc' },
-      include: { _count: { select: { pedidos: { where: { estado: { in: ESTADOS_ACTIVOS } } } } } },
+      include: { _count: { select: { pedidos: { where: { estado: 'ACTIVO' } } } } },
     });
     return mesas.map(({ _count, ...mesa }) => ({ ...mesa, pedidosActivos: _count.pedidos }));
   }

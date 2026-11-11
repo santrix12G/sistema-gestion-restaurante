@@ -5,9 +5,7 @@ import { Roles, Usuario, UsuarioActual } from '../../identidad';
 import { ActualizarEstadoPedidoUseCase } from '../application/actualizar-estado-pedido.use-case';
 import { ConsultarPedidosService } from '../application/consultar-pedidos.service';
 import { CrearPedidoUseCase } from '../application/crear-pedido.use-case';
-import { EstadoPedido, MAX_CANTIDAD_POR_LINEA } from '../domain/pedido';
-
-const ESTADOS: EstadoPedido[] = ['PENDIENTE', 'CONFIRMADO', 'EN_PREPARACION', 'LISTO', 'EN_CAMINO', 'ENTREGADO', 'CANCELADO'];
+import { EstadoCierre, EstadoPedido, ESTADOS, ESTADOS_CIERRE, MAX_CANTIDAD_POR_LINEA } from '../domain/pedido';
 
 class ItemDto {
   @IsUUID()
@@ -66,8 +64,8 @@ class CrearPedidoDto {
 }
 
 class CambiarEstadoDto {
-  @IsIn(ESTADOS)
-  estado!: EstadoPedido;
+  @IsIn(ESTADOS_CIERRE, { message: 'El estado debe ser PAGADO o CANCELADO' })
+  estado!: EstadoCierre;
 }
 
 @Controller()
@@ -83,7 +81,7 @@ export class PedidosController {
     return this.consultar.mesas();
   }
 
-  /** Sin filtro devuelve los pedidos activos. Con ?estados=LISTO,EN_CAMINO filtra por esos estados. */
+  /** Sin filtro devuelve los pedidos activos. Con ?estados=PAGADO,CANCELADO devuelve los cerrados hoy. */
   @Get('pedidos')
   listar(@Query('estados') estados?: string) {
     if (!estados) return this.consultar.listar();
@@ -108,5 +106,12 @@ export class PedidosController {
   @Patch('pedidos/:id/estado')
   cambiarEstado(@Param('id', ParseUUIDPipe) id: string, @Body() { estado }: CambiarEstadoDto, @Usuario() usuario: UsuarioActual) {
     return this.actualizarEstado.ejecutar(id, estado, usuario);
+  }
+
+  /** El repartidor toma un domicilio libre y sale a entregarlo */
+  @Roles('REPARTIDOR')
+  @Post('pedidos/:id/tomar')
+  tomar(@Param('id', ParseUUIDPipe) id: string, @Usuario() usuario: UsuarioActual) {
+    return this.actualizarEstado.tomarDomicilio(id, usuario);
   }
 }

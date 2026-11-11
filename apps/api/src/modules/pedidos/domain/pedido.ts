@@ -1,11 +1,14 @@
 // Reglas del pedido. Lógica pura: no conoce la base de datos ni HTTP.
 import { DomainError } from '../../../shared/domain-error';
 
-export type EstadoPedido = 'PENDIENTE' | 'CONFIRMADO' | 'EN_PREPARACION' | 'LISTO' | 'EN_CAMINO' | 'ENTREGADO' | 'CANCELADO';
+/** Un pedido está ACTIVO hasta que se cobra (PAGADO) o se cancela. Si un domicilio va en camino lo dice su entrega. */
+export type EstadoPedido = 'ACTIVO' | 'PAGADO' | 'CANCELADO';
+export type EstadoCierre = Exclude<EstadoPedido, 'ACTIVO'>;
 export type TipoPedido = 'MESA' | 'DOMICILIO' | 'RECOGER';
-export type Rol = 'ADMIN' | 'MESERO' | 'COCINA' | 'REPARTIDOR';
+export type Rol = 'ADMIN' | 'MESERO' | 'REPARTIDOR';
 
-export const ESTADOS_ACTIVOS: EstadoPedido[] = ['PENDIENTE', 'CONFIRMADO', 'EN_PREPARACION', 'LISTO', 'EN_CAMINO'];
+export const ESTADOS: EstadoPedido[] = ['ACTIVO', 'PAGADO', 'CANCELADO'];
+export const ESTADOS_CIERRE: EstadoCierre[] = ['PAGADO', 'CANCELADO'];
 
 export const MAX_CANTIDAD_POR_LINEA = 50;
 
@@ -33,66 +36,44 @@ export function calcularTotales(lineas: LineaSolicitada[], costoDomicilio = 0) {
   return { lineas: calculadas, subtotal, costoDomicilio, total: subtotal + costoDomicilio };
 }
 
-const SIGUIENTES: Record<EstadoPedido, EstadoPedido[]> = {
-  PENDIENTE: ['CONFIRMADO', 'CANCELADO'],
-  CONFIRMADO: ['EN_PREPARACION', 'CANCELADO'],
-  EN_PREPARACION: ['LISTO'],
-  LISTO: ['EN_CAMINO', 'ENTREGADO'],
-  EN_CAMINO: ['ENTREGADO'],
-  ENTREGADO: [],
-  CANCELADO: [],
-};
+/** Lo que las reglas necesitan saber de un pedido para decidir quién puede cambiarlo. */
+export interface PedidoParaPermisos {
+  estado: EstadoPedido;
+  tipo: TipoPedido;
+  /** Mesero que lo registró. Vacío si llegó por el chatbot */
+  creadoPorId?: string | null;
+  /** Repartidor que lo lleva. Vacío si nadie lo ha tomado */
+  repartidorId?: string | null;
+}
 
-/** Quién puede llevar un pedido a cada estado. ADMIN puede hacerlo todo. */
-const ROLES_POR_DESTINO: Record<EstadoPedido, Rol[]> = {
-  PENDIENTE: [],
-  CONFIRMADO: ['ADMIN', 'MESERO'],
-  EN_PREPARACION: ['ADMIN', 'COCINA'],
-  LISTO: ['ADMIN', 'COCINA'],
-  EN_CAMINO: ['ADMIN', 'REPARTIDOR'],
-  ENTREGADO: ['ADMIN', 'MESERO', 'REPARTIDOR'],
-  CANCELADO: ['ADMIN', 'MESERO'],
-};
-
-const NOMBRES: Record<EstadoPedido, string> = {
-  PENDIENTE: 'pendiente',
-  CONFIRMADO: 'confirmado',
-  EN_PREPARACION: 'en preparación',
-  LISTO: 'listo',
-  EN_CAMINO: 'en camino',
-  ENTREGADO: 'entregado',
-  CANCELADO: 'cancelado',
-};
+const NOMBRES: Record<EstadoPedido, string> = { ACTIVO: 'activo', PAGADO: 'pagado', CANCELADO: 'cancelado' };
 
 /**
- * Lanza un error si el cambio de estado no está permitido.
- * `repartidorId` es quien sacó el domicilio a reparto: solo él puede marcarlo entregado.
+ * Lanza un error si el usuario no puede marcar el pedido como pagado o cancelado.
+ * El administrador puede cerrar cualquiera. El mesero, solo los que él registró.
+ * El repartidor, solo los domicilios que lleva. Los pedidos del chatbot para recoger los cierra el administrador.
  */
-export function validarCambioEstado(
-  pedido: { estado: EstadoPedido; tipo: TipoPedido; repartidorId?: string | null },
-  nuevo: EstadoPedido,
-  rol: Rol,
-  usuarioId?: string,
-): void {
-  if (!SIGUIENTES[pedido.estado].includes(nuevo)) {
-    const mensaje = pedido.estado === 'EN_PREPARACION' && nuevo === 'CANCELADO'
-      ? 'Un pedido en preparación ya no se puede cancelar'
-      : `Un pedido ${NOMBRES[pedido.estado]} no puede pasar a ${NOMBRES[nuevo]}`;
-    throw new DomainError('conflicto', mensaje);
+export function validarCierre(pedido: PedidoParaPermisos, nuevo: EstadoCierre, rol: Rol, usuarioId: string): void {
+  if (pedido.estado !== 'ACTIVO') throw new DomainError('conflicto', `Este pedido ya está ${NOMBRES[pedido.estado]}`);
+  if (rol === 'ADMIN') return;
+
+  if (pedido.tipo === 'DOMICILIO') {
+    if (rol !== 'REPARTIDOR') throw new DomainError('prohibido', 'Los domicilios los cierra el repartidor que los lleva');
+    if (!pedido.repartidorId) throw new DomainError('conflicto', 'Primero toma el domicilio para llevarlo');
+    if (pedido.repartidorId !== usuarioId) throw new DomainError('prohibido', 'Este domicilio lo lleva otro repartidor');
+    return;
   }
 
-  const esDomicilio = pedido.tipo === 'DOMICILIO';
-  if (nuevo === 'EN_CAMINO' && !esDomicilio) throw new DomainError('conflicto', 'Solo los domicilios salen a reparto');
-  if (pedido.estado === 'LISTO' && nuevo === 'ENTREGADO' && esDomicilio) {
-    throw new DomainError('conflicto', 'Un domicilio debe salir a reparto antes de entregarse');
-  }
+  if (rol !== 'MESERO') throw new DomainError('prohibido', 'Tu rol no puede cerrar pedidos en mesa ni para recoger');
+  if (!pedido.creadoPorId) throw new DomainError('prohibido', 'Los pedidos del chatbot para recoger los cierra el administrador');
+  if (pedido.creadoPorId !== usuarioId) throw new DomainError('prohibido', 'Este pedido lo registró otro mesero');
+}
 
-  if (!ROLES_POR_DESTINO[nuevo].includes(rol)) throw new DomainError('prohibido', 'Tu rol no puede hacer este cambio de estado');
-  // El mesero entrega en el local; el repartidor, a domicilio
-  if (nuevo === 'ENTREGADO' && ((rol === 'MESERO' && esDomicilio) || (rol === 'REPARTIDOR' && !esDomicilio))) {
-    throw new DomainError('prohibido', 'Tu rol no puede entregar este tipo de pedido');
-  }
-  if (nuevo === 'ENTREGADO' && rol === 'REPARTIDOR' && pedido.repartidorId && pedido.repartidorId !== usuarioId) {
-    throw new DomainError('prohibido', 'Este domicilio lo lleva otro repartidor');
-  }
+/** Lanza un error si el usuario no puede tomar el domicilio para llevarlo. */
+export function validarTomaDomicilio(pedido: PedidoParaPermisos, rol: Rol, usuarioId: string): void {
+  if (rol !== 'REPARTIDOR') throw new DomainError('prohibido', 'Solo un repartidor puede llevar domicilios');
+  if (pedido.tipo !== 'DOMICILIO') throw new DomainError('conflicto', 'Solo los domicilios salen a reparto');
+  if (pedido.estado !== 'ACTIVO') throw new DomainError('conflicto', `Este pedido ya está ${NOMBRES[pedido.estado]}`);
+  if (pedido.repartidorId === usuarioId) throw new DomainError('conflicto', 'Ya llevas este domicilio');
+  if (pedido.repartidorId) throw new DomainError('conflicto', 'Otro repartidor ya tomó este domicilio');
 }

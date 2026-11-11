@@ -8,7 +8,7 @@
 
 Los dos servicios se conectan al repositorio de GitHub y se despliegan solos cada vez que cambia la rama `main`.
 
-**Sobre el plan gratis de Render:** la API se duerme después de 15 minutos sin uso y tarda cerca de un minuto en despertar. La primera petición después de un rato (abrir la web, un mensaje al bot) espera ese minuto; las siguientes son normales. Mientras la pantalla de cocina esté abierta, la conexión en tiempo real la mantiene despierta.
+**Sobre el plan gratis de Render:** la API se duerme después de 15 minutos sin uso y tarda cerca de un minuto en despertar. La primera petición después de un rato (abrir la web, un mensaje al bot) espera ese minuto; las siguientes son normales. Mientras la pantalla de pedidos esté abierta, la conexión en tiempo real la mantiene despierta.
 
 Las cuentas las creas tú. Puedes entrar a Render y a Vercel con tu cuenta de GitHub.
 
@@ -80,7 +80,7 @@ Con la API en Render ya no necesitas ngrok. Usa la dirección de Render en Twili
 | La compilación de Render falla en `db:migrate` | `DATABASE_URL` mal copiada, o no es la del Session pooler |
 | La web dice "No hay conexión con el servidor" | La API está despertando (espera un minuto), o `NEXT_PUBLIC_API_URL` está mal |
 | El navegador muestra un error de CORS | `CORS_ORIGINS` no tiene exactamente la dirección de Vercel |
-| Cocina no se actualiza al instante | Mismo caso de CORS: el tiempo real usa la misma lista |
+| Pedidos no se actualiza al instante | Mismo caso de CORS: el tiempo real usa la misma lista |
 | El bot de Telegram no responde | Revisa los registros de Render. Si dice `Otra API está recibiendo…`, hay otra copia usando el token |
 
 Los registros están en Render, en **Logs**. Ahí aparece todo lo que la API escribe en la terminal.
