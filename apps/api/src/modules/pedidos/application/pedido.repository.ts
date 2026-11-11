@@ -12,7 +12,12 @@ export interface PedidoVista {
   estado: EstadoPedido;
   mesa: { numero: number } | null;
   cliente: { nombre: string | null; telefono: string } | null;
-  entrega: { direccionTexto: string; estado: string } | null;
+  entrega: {
+    direccionTexto: string;
+    estado: string;
+    direccion: { barrio: string | null; referencia: string | null };
+    repartidor: { id: string; nombre: string } | null;
+  } | null;
   subtotal: number;
   costoDomicilio: number;
   total: number;
@@ -44,8 +49,11 @@ export interface PedidoRepository {
   buscarPorClave(clave: string): Promise<PedidoVista | null>;
   obtener(id: string): Promise<PedidoVista | null>;
   listar(estados: EstadoPedido[]): Promise<PedidoVista[]>;
-  /** Cambia el estado solo si sigue siendo `desde`. Devuelve false si otro usuario lo cambió antes. */
-  cambiarEstado(id: string, desde: EstadoPedido, hasta: EstadoPedido, usuarioId: string): Promise<boolean>;
+  /**
+   * Cambia el estado solo si sigue siendo `desde`. Devuelve false si otro usuario lo cambió antes.
+   * Con `repartidorId`, el domicilio queda asignado a ese repartidor.
+   */
+  cambiarEstado(id: string, desde: EstadoPedido, hasta: EstadoPedido, usuarioId: string, repartidorId?: string): Promise<boolean>;
 }
 
 export const PEDIDO_REPOSITORY = Symbol('PedidoRepository');

@@ -39,6 +39,11 @@ class CrearPedidoDto {
   @IsIn(['MESA', 'RECOGER'])
   tipo!: 'MESA' | 'RECOGER';
 
+  /** La app móvil envía MOVIL; sin este campo, el pedido cuenta como hecho en la web */
+  @IsOptional()
+  @IsIn(['WEB', 'MOVIL'])
+  canal?: 'WEB' | 'MOVIL';
+
   @IsOptional()
   @IsUUID()
   mesaId?: string;

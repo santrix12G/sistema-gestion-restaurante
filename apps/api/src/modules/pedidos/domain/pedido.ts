@@ -64,8 +64,16 @@ const NOMBRES: Record<EstadoPedido, string> = {
   CANCELADO: 'cancelado',
 };
 
-/** Lanza un error si el cambio de estado no está permitido. */
-export function validarCambioEstado(pedido: { estado: EstadoPedido; tipo: TipoPedido }, nuevo: EstadoPedido, rol: Rol): void {
+/**
+ * Lanza un error si el cambio de estado no está permitido.
+ * `repartidorId` es quien sacó el domicilio a reparto: solo él puede marcarlo entregado.
+ */
+export function validarCambioEstado(
+  pedido: { estado: EstadoPedido; tipo: TipoPedido; repartidorId?: string | null },
+  nuevo: EstadoPedido,
+  rol: Rol,
+  usuarioId?: string,
+): void {
   if (!SIGUIENTES[pedido.estado].includes(nuevo)) {
     const mensaje = pedido.estado === 'EN_PREPARACION' && nuevo === 'CANCELADO'
       ? 'Un pedido en preparación ya no se puede cancelar'
@@ -83,5 +91,8 @@ export function validarCambioEstado(pedido: { estado: EstadoPedido; tipo: TipoPe
   // El mesero entrega en el local; el repartidor, a domicilio
   if (nuevo === 'ENTREGADO' && ((rol === 'MESERO' && esDomicilio) || (rol === 'REPARTIDOR' && !esDomicilio))) {
     throw new DomainError('prohibido', 'Tu rol no puede entregar este tipo de pedido');
+  }
+  if (nuevo === 'ENTREGADO' && rol === 'REPARTIDOR' && pedido.repartidorId && pedido.repartidorId !== usuarioId) {
+    throw new DomainError('prohibido', 'Este domicilio lo lleva otro repartidor');
   }
 }

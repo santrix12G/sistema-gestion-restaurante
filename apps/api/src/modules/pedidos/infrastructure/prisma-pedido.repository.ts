@@ -18,7 +18,14 @@ const VISTA = {
   actualizadoEn: true,
   mesa: { select: { numero: true } },
   cliente: { select: { nombre: true, telefono: true } },
-  entrega: { select: { direccionTexto: true, estado: true } },
+  entrega: {
+    select: {
+      direccionTexto: true,
+      estado: true,
+      direccion: { select: { barrio: true, referencia: true } },
+      repartidor: { select: { id: true, nombre: true } },
+    },
+  },
   detalles: { select: { id: true, nombreProducto: true, precioUnitario: true, cantidad: true, subtotal: true, notas: true } },
 } satisfies Prisma.PedidoSelect;
 
@@ -69,13 +76,18 @@ export class PrismaPedidoRepository implements PedidoRepository {
     return this.prisma.pedido.findMany({ where: { estado: { in: estados } }, orderBy: { creadoEn: 'asc' }, select: VISTA, take: 200 });
   }
 
-  async cambiarEstado(id: string, desde: EstadoPedido, hasta: EstadoPedido, usuarioId: string): Promise<boolean> {
+  async cambiarEstado(id: string, desde: EstadoPedido, hasta: EstadoPedido, usuarioId: string, repartidorId?: string): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.pedido.updateMany({ where: { id, estado: desde }, data: { estado: hasta } });
       if (count === 0) return false;
       await tx.historialEstadoPedido.create({ data: { pedidoId: id, estadoAntes: desde, estadoNuevo: hasta, usuarioId } });
       // La entrega de un domicilio sigue al pedido
-      if (hasta === 'EN_CAMINO') await tx.entrega.updateMany({ where: { pedidoId: id }, data: { estado: 'EN_CAMINO' } });
+      if (hasta === 'EN_CAMINO') {
+        await tx.entrega.updateMany({
+          where: { pedidoId: id },
+          data: { estado: 'EN_CAMINO', ...(repartidorId && { repartidorId, asignadaEn: new Date() }) },
+        });
+      }
       if (hasta === 'ENTREGADO') await tx.entrega.updateMany({ where: { pedidoId: id }, data: { estado: 'ENTREGADA', entregadaEn: new Date() } });
       return true;
     });

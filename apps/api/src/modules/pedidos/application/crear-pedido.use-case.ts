@@ -10,6 +10,8 @@ import { aEvento, PEDIDO_REPOSITORY, PedidoRepository, PedidoVista } from './ped
 
 export interface SolicitudPedidoLocal {
   tipo: 'MESA' | 'RECOGER';
+  /** Desde dónde lo registró el personal: la web o la app móvil */
+  canal?: 'WEB' | 'MOVIL';
   mesaId?: string;
   cliente?: { telefono: string; nombre?: string };
   items: ItemSolicitado[];
@@ -17,7 +19,7 @@ export interface SolicitudPedidoLocal {
   claveIdempotencia?: string;
 }
 
-/** Pedido que registra el personal desde la web: en mesa o para recoger. Queda confirmado de una vez. */
+/** Pedido que registra el personal desde la web o la app: en mesa o para recoger. Queda confirmado de una vez. */
 @Injectable()
 export class CrearPedidoUseCase {
   constructor(
@@ -49,7 +51,7 @@ export class CrearPedidoUseCase {
     const totales = await armarPedido(this.catalogo, solicitud.items);
     const pedido = await this.pedidos.crear({
       tipo: solicitud.tipo,
-      canal: 'WEB',
+      canal: solicitud.canal ?? 'WEB',
       estado: 'CONFIRMADO',
       mesaId,
       clienteId,

@@ -16,9 +16,11 @@ export class ActualizarEstadoPedidoUseCase {
     const pedido = await this.pedidos.obtener(id);
     if (!pedido) throw new DomainError('no_encontrado', 'El pedido no existe');
 
-    validarCambioEstado(pedido, nuevo, usuario.rol);
+    validarCambioEstado({ ...pedido, repartidorId: pedido.entrega?.repartidor?.id }, nuevo, usuario.rol, usuario.id);
+    // El repartidor que saca el domicilio queda a cargo de entregarlo
+    const repartidorId = nuevo === 'EN_CAMINO' && usuario.rol === 'REPARTIDOR' ? usuario.id : undefined;
     // Si dos personas actúan a la vez sobre el mismo pedido, solo gana la primera
-    const cambiado = await this.pedidos.cambiarEstado(id, pedido.estado, nuevo, usuario.id);
+    const cambiado = await this.pedidos.cambiarEstado(id, pedido.estado, nuevo, usuario.id, repartidorId);
     if (!cambiado) throw new DomainError('conflicto', 'Otra persona cambió este pedido. Actualiza la pantalla');
 
     const actualizado = (await this.pedidos.obtener(id))!;
