@@ -13,7 +13,7 @@ apps/
 
 | Módulo | Qué hace | Rutas |
 |---|---|---|
-| `identidad` | Inicio de sesión con token JWT y permisos por rol | `POST /api/auth/login`, `GET /api/auth/yo` |
+| `identidad` | Inicio de sesión con token JWT, permisos por rol y cuentas del personal | `POST /api/auth/login`, `GET /api/auth/yo`, `/api/personal` (el administrador crea, edita, suspende y borra meseros y repartidores) |
 | `catalogo` | Categorías y productos del menú | `/api/catalogo/categorias`, `/api/catalogo/productos` |
 | `clientes` | Registro de clientes por teléfono y sus direcciones | Sin rutas propias: lo usan `pedidos` y `chatbot` |
 | `pedidos` | Creación de pedidos, cierre (pagado o cancelado), toma de domicilios y mesas | `/api/pedidos`, `/api/pedidos/:id/estado`, `/api/pedidos/:id/tomar`, `/api/mesas` (el administrador las crea, edita, suspende y borra) |

@@ -13,6 +13,21 @@ export interface UsuarioSesion {
   rol: Rol;
 }
 
+/** Cuenta de un mesero o repartidor, como la ve el administrador */
+export interface Cuenta {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: Exclude<Rol, 'ADMIN'>;
+  /** Una cuenta suspendida no puede entrar */
+  activo: boolean;
+  creadoEn: string;
+  /** Pedidos abiertos a su cargo: mientras tenga, no se puede suspender ni cambiar de rol */
+  pedidosActivos: number;
+  /** Si ya registró o entregó pedidos no se puede borrar, solo suspender */
+  tieneHistorial: boolean;
+}
+
 export interface Categoria {
   id: string;
   nombre: string;
