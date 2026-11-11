@@ -76,6 +76,75 @@ describe('catálogo', () => {
   });
 });
 
+describe('personal', () => {
+  const crear = (datos: object, rol = 'admin') => api().post('/api/personal').set(como(rol)).send(datos);
+  const cambiar = (id: string, datos: object) => api().patch(`/api/personal/${id}`).set(como('admin')).send(datos);
+  const entrar = (email: string, password: string) => api().post('/api/auth/login').send({ email, password });
+
+  it('solo el administrador gestiona al personal, y no puede tocar cuentas de administrador', async () => {
+    expect((await api().get('/api/personal').set(como('mesero'))).status).toBe(403);
+    const { body: lista } = await api().get('/api/personal').set(como('admin'));
+    expect(lista.map((c: { rol: string }) => c.rol).sort()).toEqual(['MESERO', 'REPARTIDOR']);
+    expect(lista[0]).not.toHaveProperty('passwordHash');
+
+    const { body: admin } = await api().get('/api/auth/yo').set(como('admin'));
+    expect((await cambiar(admin.id, { activo: false })).status).toBe(404);
+    expect((await crear({ nombre: 'Otro admin', email: 'jefe@restaurante.test', rol: 'ADMIN', password: 'Clave-1234' })).status).toBe(400);
+  });
+
+  it('crea un mesero que puede entrar; valida correo repetido y contraseña débil', async () => {
+    const nuevo = await crear({ nombre: 'Ana Mesera', email: ' Ana@Restaurante.test ', rol: 'MESERO', password: 'Ana-clave-1' });
+    expect(nuevo.status).toBe(201);
+    expect(nuevo.body).toMatchObject({ nombre: 'Ana Mesera', email: 'ana@restaurante.test', rol: 'MESERO', activo: true });
+    expect(nuevo.body).not.toHaveProperty('passwordHash');
+    expect((await entrar('ana@restaurante.test', 'Ana-clave-1')).status).toBe(200);
+
+    const repetido = await crear({ nombre: 'Ana 2', email: 'ana@restaurante.test', rol: 'MESERO', password: 'Ana-clave-1' });
+    expect(repetido.status).toBe(409);
+    expect(repetido.body.mensaje).toMatch(/Ya existe una cuenta con ese correo/);
+    const debil = await crear({ nombre: 'Beto', email: 'beto@restaurante.test', rol: 'REPARTIDOR', password: 'corta' });
+    expect(debil.status).toBe(400);
+    expect(debil.body.mensaje).toMatch(/al menos 8/);
+  });
+
+  it('suspender corta la sesión al instante; no se suspende a quien tiene pedidos activos', async () => {
+    const { body: cuenta } = await crear({ nombre: 'Carlos', email: 'carlos@restaurante.test', rol: 'MESERO', password: 'Carlos-123' });
+    const { body: sesion } = await entrar('carlos@restaurante.test', 'Carlos-123');
+    const comoCarlos = { Authorization: `Bearer ${sesion.token}` };
+    const { body: mesas } = await api().get('/api/mesas').set(comoCarlos);
+    const gaseosa = await producto('Gaseosa');
+    const { body: pedido } = await api().post('/api/pedidos').set(comoCarlos).send({ tipo: 'MESA', mesaId: mesas[0].id, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
+
+    const bloqueado = await cambiar(cuenta.id, { activo: false });
+    expect(bloqueado.status).toBe(409);
+    expect(bloqueado.body.mensaje).toMatch(/Carlos tiene un pedido activo/);
+    expect((await cambiar(cuenta.id, { rol: 'REPARTIDOR' })).status).toBe(409);
+
+    await api().patch(`/api/pedidos/${pedido.id}/estado`).set(comoCarlos).send({ estado: 'PAGADO' });
+    expect((await cambiar(cuenta.id, { activo: false })).body.activo).toBe(false);
+    // La sesión que tenía abierta deja de funcionar (el login usa la misma regla). El login tiene un límite de 10 intentos por minuto
+    expect((await api().get('/api/pedidos').set(comoCarlos)).status).toBe(401);
+
+    // Ya tiene pedidos: no se borra, se queda suspendido
+    const borrar = await api().delete(`/api/personal/${cuenta.id}`).set(como('admin'));
+    expect(borrar.status).toBe(409);
+    expect(borrar.body.mensaje).toMatch(/Suspende su cuenta/);
+
+    // Reactivado y con contraseña nueva vuelve a entrar
+    expect((await cambiar(cuenta.id, { activo: true, password: 'Nueva-clave-9' })).status).toBe(200);
+    expect((await entrar('carlos@restaurante.test', 'Nueva-clave-9')).status).toBe(200);
+  });
+
+  it('borra una cuenta sin historial y cambia datos y rol', async () => {
+    const { body: cuenta } = await crear({ nombre: 'Dora', email: 'dora@restaurante.test', rol: 'REPARTIDOR', password: 'Dora-clave-1' });
+    const editada = await cambiar(cuenta.id, { nombre: 'Dora Díaz', rol: 'MESERO' });
+    expect(editada.body).toMatchObject({ nombre: 'Dora Díaz', rol: 'MESERO' });
+    expect((await api().delete(`/api/personal/${cuenta.id}`).set(como('admin'))).status).toBe(204);
+    const { body: lista } = await api().get('/api/personal').set(como('admin'));
+    expect(lista.some((c: { id: string }) => c.id === cuenta.id)).toBe(false);
+  });
+});
+
 describe('mesas', () => {
   const crear = (datos: object, rol = 'admin') => api().post('/api/mesas').set(como(rol)).send(datos);
 
