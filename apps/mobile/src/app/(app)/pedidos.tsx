@@ -1,29 +1,37 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
+import { Historial } from '@/components/historial';
 import { TarjetaPedido } from '@/components/tarjeta-pedido';
-import { Aviso, Boton, Cargando, COLOR, estilos, Seccion, Vacio } from '@/components/ui';
+import { Aviso, Boton, Buscador, Cargando, COLOR, estilos, Seccion, Segmento, Vacio } from '@/components/ui';
+import { coincide } from '@/lib/buscar';
 import { avisar, confirmar } from '@/lib/confirmar';
 import { destino, pesos } from '@/lib/formato';
 import { cerrarPedido, usePedidos } from '@/lib/pedidos';
 import { useUsuario } from '@/lib/sesion';
 import { EstadoPedido, Pedido } from '@/lib/tipos';
 
-const ESTADOS: EstadoPedido[] = ['ACTIVO'];
+type Vista = 'activos' | 'hoy';
+const ACTIVOS: EstadoPedido[] = ['ACTIVO'];
+const CERRADOS: EstadoPedido[] = ['PAGADO', 'CANCELADO'];
 
 /**
- * Pedidos activos de mesa y para recoger. El mesero ve los que él registró y los cobra o cancela.
- * El administrador ve además los de los otros meseros y los del chatbot.
+ * Pedidos de mesa y para recoger. La API le envía al mesero solo los que él registró;
+ * al administrador, todos. La pestaña Hoy muestra los que se pagaron o cancelaron hoy.
  */
 export default function Pedidos() {
   const usuario = useUsuario();
-  const { pedidos, error, recargando, recargar, cargar } = usePedidos(ESTADOS);
+  const [vista, setVista] = useState<Vista>('activos');
+  const [consulta, setConsulta] = useState('');
+  const { pedidos, error, recargando, recargar, cargar } = usePedidos(vista === 'activos' ? ACTIVOS : CERRADOS);
   const [ocupado, setOcupado] = useState<string | null>(null);
 
-  // Los domicilios los atienden los repartidores
-  const delLocal = (pedidos ?? []).filter((p) => p.tipo !== 'DOMICILIO');
-  const mios = delLocal.filter((p) => p.creadoPor?.id === usuario?.id);
-  const deOtros = usuario?.rol === 'ADMIN' ? delLocal.filter((p) => !mios.includes(p)) : [];
+  // Los domicilios los atienden los repartidores. Al cambiar de pestaña, la lista anterior no se mezcla
+  const delLocal = (pedidos ?? []).filter((p) => p.tipo !== 'DOMICILIO' && (vista === 'activos') === (p.estado === 'ACTIVO'));
+  const hallados = delLocal.filter((p) => coincide(p, consulta));
+  const buscando = consulta.trim() !== '';
+  const mios = hallados.filter((p) => p.creadoPor?.id === usuario?.id);
+  const deOtros = hallados.filter((p) => !mios.includes(p));
 
   async function cerrar(pedido: Pedido, estado: 'PAGADO' | 'CANCELADO') {
     const seguro =
@@ -53,19 +61,34 @@ export default function Pedidos() {
     <ScrollView
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
+      keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={recargando} onRefresh={recargar} colors={[COLOR.marca]} />}
     >
+      <Segmento
+        opciones={[
+          { valor: 'activos', texto: 'Activos' },
+          { valor: 'hoy', texto: usuario?.rol === 'ADMIN' ? 'Cerrados hoy' : 'Mi historial de hoy' },
+        ]}
+        valor={vista}
+        alCambiar={setVista}
+      />
+      <Buscador value={consulta} onChangeText={setConsulta} placeholder="Buscar: M3, #12, cliente, producto…" />
       <Aviso>{error}</Aviso>
       {!pedidos ? (
         error ? null : <Cargando texto="Cargando pedidos… (si la API estaba dormida, tarda cerca de un minuto)" />
+      ) : vista === 'hoy' ? (
+        <Historial pedidos={hallados} buscando={buscando} vacio="Hoy no has cobrado ni cancelado pedidos." />
       ) : (
         <>
           <Seccion titulo="Mis pedidos activos" cantidad={mios.length} />
-          {mios.length === 0 ? <Vacio>No tienes pedidos activos. Crea uno en la pestaña Nuevo pedido.</Vacio> : null}
+          {mios.length === 0 ? (
+            <Vacio>{buscando ? 'Ninguno de tus pedidos coincide con la búsqueda.' : 'No tienes pedidos activos. Crea uno en la pestaña Nuevo pedido.'}</Vacio>
+          ) : null}
           {mios.map((p) => (
             <TarjetaPedido key={p.id} pedido={p}>{acciones(p)}</TarjetaPedido>
           ))}
 
+          {/* Solo le llegan al administrador */}
           {deOtros.length > 0 ? (
             <>
               <Seccion titulo="De otros meseros y del chatbot" cantidad={deOtros.length} />

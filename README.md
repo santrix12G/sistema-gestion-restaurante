@@ -54,10 +54,10 @@ Abre http://localhost:3000. Los usuarios son `admin@restaurante.test`, `mesero@r
 | Rol | Pantallas |
 |---|---|
 | Administrador | Todo, incluido crear y editar productos y probar el chatbot en el simulador |
-| Mesero | Registrar pedidos, marcarlos pagados o cancelarlos (solo los suyos) y marcar productos agotados, en la web o en la app |
-| Repartidor | Tomar los domicilios, que quedan a su nombre, y marcarlos entregados y pagados o cancelarlos, en la web o en la app |
+| Mesero | Registrar pedidos y marcarlos pagados o cancelarlos, con su historial del día. Solo ve los que él registró. También marca productos agotados. En la web o en la app |
+| Repartidor | Ve los domicilios disponibles y los que lleva; al tomar uno queda a su nombre y lo marca entregado y pagado o cancelado. Tiene el historial de los que llevó hoy. En la web o en la app |
 
-Un pedido está **Activo**, **Pagado** o **Cancelado**. Los activos se ven en la pantalla principal; los pagados y cancelados del día, en su propia pestaña. El restaurante no registra a los cocineros.
+Un pedido está **Activo**, **Pagado** o **Cancelado**. Los activos se ven en la pantalla principal; los pagados y cancelados del día, en su propia pestaña. En las dos hay un buscador por número de pedido, mesa (M3) o palabra clave: cliente, teléfono, producto o nota. El restaurante no registra a los cocineros.
 
 ## Pruebas
 

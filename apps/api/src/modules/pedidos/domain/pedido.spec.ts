@@ -1,5 +1,5 @@
 import { DomainError } from '../../../shared/domain-error';
-import { calcularTotales, EstadoCierre, PedidoParaPermisos, Rol, validarCierre, validarTomaDomicilio } from './pedido';
+import { alcanceDe, calcularTotales, EstadoCierre, PedidoParaPermisos, puedeVer, Rol, validarCierre, validarTomaDomicilio } from './pedido';
 
 const linea = (precioUnitario: number, cantidad: number) => ({ productoId: 'p', nombre: 'Limonada', precioUnitario, cantidad });
 
@@ -81,5 +81,33 @@ describe('validarTomaDomicilio', () => {
     expect(toma(libre, 'MESERO')?.tipo).toBe('prohibido');
     expect(toma(libre, 'ADMIN')?.tipo).toBe('prohibido');
     expect(toma({ ...libre, tipo: 'MESA' })?.tipo).toBe('conflicto');
+  });
+});
+
+describe('qué pedidos ve cada rol', () => {
+  const mesa = (creadoPorId: string | null, estado: PedidoParaPermisos['estado'] = 'ACTIVO'): PedidoParaPermisos => ({ tipo: 'MESA', estado, creadoPorId });
+  const domicilio = (repartidorId: string | null, estado: PedidoParaPermisos['estado'] = 'ACTIVO'): PedidoParaPermisos => ({ tipo: 'DOMICILIO', estado, repartidorId });
+
+  it('el administrador ve todos', () => {
+    expect(alcanceDe('ADMIN', 'a', ['ACTIVO'])).toEqual({ tipo: 'todos' });
+    expect(puedeVer(mesa('m1'), 'ADMIN', 'a')).toBe(true);
+    expect(puedeVer(domicilio(null, 'PAGADO'), 'ADMIN', 'a')).toBe(true);
+  });
+
+  it('el mesero solo ve los que registró, activos o cerrados', () => {
+    expect(puedeVer(mesa('m1'), 'MESERO', 'm1')).toBe(true);
+    expect(puedeVer(mesa('m1', 'PAGADO'), 'MESERO', 'm1')).toBe(true);
+    expect(puedeVer(mesa('m2'), 'MESERO', 'm1')).toBe(false);
+    expect(puedeVer(mesa(null), 'MESERO', 'm1')).toBe(false);
+  });
+
+  it('el repartidor ve los domicilios libres y los suyos; en el historial, solo los que llevó', () => {
+    expect(puedeVer(domicilio(null), 'REPARTIDOR', 'r1')).toBe(true);
+    expect(puedeVer(domicilio('r1'), 'REPARTIDOR', 'r1')).toBe(true);
+    expect(puedeVer(domicilio('r2'), 'REPARTIDOR', 'r1')).toBe(false);
+    expect(puedeVer(domicilio('r1', 'PAGADO'), 'REPARTIDOR', 'r1')).toBe(true);
+    expect(puedeVer(domicilio(null, 'CANCELADO'), 'REPARTIDOR', 'r1')).toBe(false);
+    expect(puedeVer(mesa('r1'), 'REPARTIDOR', 'r1')).toBe(false);
+    expect(alcanceDe('REPARTIDOR', 'r1', ['PAGADO', 'CANCELADO'])).toEqual({ tipo: 'domicilios_de', repartidorId: 'r1', incluirLibres: false });
   });
 });

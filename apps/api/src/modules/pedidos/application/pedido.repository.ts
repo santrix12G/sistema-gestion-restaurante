@@ -1,6 +1,6 @@
 // Puerto de persistencia: los casos de uso dependen de esta interfaz, no de Prisma.
 import { PedidoEvento } from '../../../shared/eventos';
-import { EstadoCierre, EstadoPedido, LineaCalculada, TipoPedido } from '../domain/pedido';
+import { Alcance, EstadoCierre, EstadoPedido, LineaCalculada, TipoPedido } from '../domain/pedido';
 
 export type CanalPedido = 'WEB' | 'MOVIL' | 'WHATSAPP' | 'TELEGRAM';
 
@@ -49,8 +49,11 @@ export interface PedidoRepository {
   crear(pedido: NuevoPedido): Promise<PedidoVista>;
   buscarPorClave(clave: string): Promise<PedidoVista | null>;
   obtener(id: string): Promise<PedidoVista | null>;
-  /** Los activos, del más antiguo al más nuevo. Los cerrados (`desde` una fecha), del más reciente al más antiguo. */
-  listar(filtro: { estados: EstadoPedido[]; desde?: Date }): Promise<PedidoVista[]>;
+  /**
+   * Los pedidos que el alcance deja ver. Los activos, del más antiguo al más nuevo.
+   * Los cerrados desde una fecha (`cerradosDesde`), del último cerrado al primero.
+   */
+  listar(filtro: { estados: EstadoPedido[]; alcance: Alcance; cerradosDesde?: Date }): Promise<PedidoVista[]>;
   /** Cierra el pedido solo si sigue activo. Devuelve false si otro usuario lo cerró antes. */
   cerrar(id: string, hasta: EstadoCierre, usuarioId: string): Promise<boolean>;
   /** Asigna el domicilio al repartidor solo si nadie lo ha tomado. Devuelve false si otro lo tomó antes. */
