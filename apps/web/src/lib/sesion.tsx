@@ -50,4 +50,4 @@ export function useSesion() {
 }
 
 /** Pantalla inicial de cada rol después de iniciar sesión */
-export const inicioPorRol = (rol: Rol) => (rol === 'COCINA' ? '/cocina' : '/pedidos');
+export const inicioPorRol = (_rol: Rol) => '/pedidos';

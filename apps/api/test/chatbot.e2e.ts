@@ -86,7 +86,7 @@ beforeAll(async () => {
   puerto = (app.getHttpServer().address() as AddressInfo).port;
   prisma = app.get(PrismaService);
 
-  for (const [rol, password] of [['admin', 'Admin-pruebas-1'], ['cocina', 'Staff-pruebas-1'], ['repartidor', 'Staff-pruebas-1']]) {
+  for (const [rol, password] of [['admin', 'Admin-pruebas-1'], ['mesero', 'Staff-pruebas-1'], ['repartidor', 'Staff-pruebas-1']]) {
     const res = await api().post('/api/auth/login').send({ email: `${rol}@restaurante.test`, password });
     tokens[rol] = res.body.token;
   }
@@ -125,24 +125,28 @@ describe('webhook de WhatsApp', () => {
       where: { canal: 'WHATSAPP', cliente: { telefono: `+${TELEFONO}` } },
       include: { detalles: true, entrega: true, cliente: true },
     });
-    expect(pedido).toMatchObject({ tipo: 'DOMICILIO', estado: 'CONFIRMADO', total: 53000 });
+    expect(pedido).toMatchObject({ tipo: 'DOMICILIO', estado: 'ACTIVO', total: 53000 });
     expect(pedido.cliente?.nombre).toBe('Laura');
     expect(pedido.entrega?.direccionTexto).toBe('Calle 15 # 8-22, barrio Centro');
     expect(pedido.detalles.map((d) => d.notas).sort()).toEqual([null, null, 'sin cebolla']);
 
     const cambiar = (rol: string, estado: string) => api().patch(`/api/pedidos/${pedido.id}/estado`).set(como(rol)).send({ estado });
     const ultimo = async (patron: RegExp) => esperar(async () => (await salientes()).at(-1)?.texto.match(patron));
-    expect((await cambiar('cocina', 'EN_PREPARACION')).status).toBe(200);
-    await ultimo(/preparando/);
-    expect((await cambiar('cocina', 'LISTO')).status).toBe(200);
-    expect((await cambiar('repartidor', 'EN_CAMINO')).status).toBe(200);
-    await ultimo(/va en camino/);
+    const tomar = (rol: string) => api().post(`/api/pedidos/${pedido.id}/tomar`).set(como(rol));
+    // El domicilio lo cierra el repartidor que lo lleva, no un mesero
+    expect((await cambiar('mesero', 'PAGADO')).status).toBe(403);
+    expect((await cambiar('repartidor', 'PAGADO')).body.mensaje).toMatch(/Primero toma/);
+    expect((await tomar('mesero')).status).toBe(403);
+    expect((await tomar('repartidor')).status).toBe(201);
+    await ultimo(/va en camino con Repartidor/);
+    expect((await tomar('repartidor')).status).toBe(409);
     // Quien lo saca a reparto queda a cargo, y la app le muestra barrio y referencia
     const { body: yo } = await api().get('/api/auth/yo').set(como('repartidor'));
     const { body: enCamino } = await api().get(`/api/pedidos/${pedido.id}`).set(como('repartidor'));
+    expect(enCamino).toMatchObject({ estado: 'ACTIVO', creadoPor: null });
     expect(enCamino.entrega.repartidor).toEqual({ id: yo.id, nombre: yo.nombre });
     expect(Object.keys(enCamino.entrega.direccion).sort()).toEqual(['barrio', 'referencia']);
-    expect((await cambiar('repartidor', 'ENTREGADO')).status).toBe(200);
+    expect((await cambiar('repartidor', 'PAGADO')).body.estado).toBe('PAGADO');
     await ultimo(/entregado/);
 
     const entrega = await prisma.entrega.findUniqueOrThrow({ where: { pedidoId: pedido.id } });
@@ -252,9 +256,11 @@ describe('Telegram', () => {
     const conversacion = await prisma.conversacion.findUniqueOrThrow({ where: { clienteId_canal: { clienteId: cliente.id, canal: 'TELEGRAM' } }, include: { mensajes: true } });
     expect(conversacion.mensajes.filter((m) => m.direccion === 'SALIENTE')).toHaveLength(3);
 
-    // El aviso de estado llega por Telegram
-    expect((await api().patch(`/api/pedidos/${pedido.id}/estado`).set(como('cocina')).send({ estado: 'EN_PREPARACION' })).status).toBe(200);
-    await esperar(async () => ultimoEnviado()[1].includes('preparando'));
+    // Los pedidos del chatbot para recoger los cierra el administrador, y el aviso llega por Telegram
+    const cobrar = (rol: string) => api().patch(`/api/pedidos/${pedido.id}/estado`).set(como(rol)).send({ estado: 'PAGADO' });
+    expect((await cobrar('mesero')).status).toBe(403);
+    expect((await cobrar('admin')).status).toBe(200);
+    await esperar(async () => ultimoEnviado()[1].includes('Gracias por recoger'));
     expect(ultimoEnviado()[0]).toBe(chatId);
   });
 
@@ -281,7 +287,7 @@ describe('salud', () => {
 
 describe('simulador', () => {
   it('solo lo usa el administrador', async () => {
-    const res = await api().post('/api/chatbot/simulador').set(como('cocina')).send({ telefono: '3009998877', texto: 'hola' });
+    const res = await api().post('/api/chatbot/simulador').set(como('mesero')).send({ telefono: '3009998877', texto: 'hola' });
     expect(res.status).toBe(403);
   });
 
@@ -305,7 +311,7 @@ describe('tiempo real', () => {
   });
 
   it('avisa al personal cuando entra un pedido', async () => {
-    const socket = conectar(tokens.cocina);
+    const socket = conectar(tokens.mesero);
     await new Promise<void>((resolve) => socket.on('connect', () => resolve()));
     const aviso = new Promise<{ motivo: string; canal: string }>((resolve) => socket.on('pedido', resolve));
     // La sala se asigna después de validar el token

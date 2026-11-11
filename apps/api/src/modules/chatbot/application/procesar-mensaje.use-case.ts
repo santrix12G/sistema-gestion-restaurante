@@ -112,11 +112,13 @@ export class ProcesarMensajeUseCase {
         // El mensaje que confirmó es único: si se procesara dos veces, no se duplica el pedido
         claveIdempotencia: `chat-${mensajeId}`,
       });
-      const cuando = pedido.tipo === 'DOMICILIO' ? 'cuando salga hacia tu dirección' : 'cuando esté listo para recoger';
+      const siguiente = pedido.tipo === 'DOMICILIO'
+        ? 'Ya lo estamos preparando. Te escribiré cuando salga hacia tu dirección.'
+        : 'Ya lo estamos preparando. Pasa a recogerlo al restaurante.';
       return {
         paso: 'INICIO' as Paso,
         contexto: CONTEXTO_VACIO,
-        respuestas: [`✅ ¡Pedido *#${pedido.numero}* confirmado!\nTotal: *$${pedido.total.toLocaleString('es-CO')}*\n\nYa está en cocina. Te escribiré ${cuando}. ¡Gracias por tu pedido! 🙌`],
+        respuestas: [`✅ ¡Pedido *#${pedido.numero}* confirmado!\nTotal: *$${pedido.total.toLocaleString('es-CO')}*\n\n${siguiente} ¡Gracias por tu pedido! 🙌`],
       };
     } catch (e) {
       if (e instanceof DomainError) {

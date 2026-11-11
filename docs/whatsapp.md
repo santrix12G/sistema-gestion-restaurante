@@ -1,6 +1,6 @@
 # Chatbot de WhatsApp y Telegram
 
-El bot toma pedidos por WhatsApp y por Telegram: entiende lo que escribe el cliente, arma el pedido con los productos del menú, pregunta si es a domicilio o para recoger, confirma el total y lo envía a cocina. Después le avisa al cliente cada cambio de estado.
+El bot toma pedidos por WhatsApp y por Telegram: entiende lo que escribe el cliente, arma el pedido con los productos del menú, pregunta si es a domicilio o para recoger, confirma el total y registra el pedido. Después le avisa al cliente cuando el domicilio sale, cuando se entrega o si se cancela.
 
 ## Cómo funciona
 
@@ -16,9 +16,9 @@ sequenceDiagram
     A->>A: NLP → diálogo → carrito
     A->>M: Envía la respuesta por su API
     M->>C: Resumen y pregunta
-    Note over A,W: Al confirmar, el pedido entra a cocina y la web se actualiza al instante (Socket.IO)
-    W->>A: Cocina cambia el estado
-    A->>M: "Estamos preparando tu pedido"
+    Note over A,W: Al confirmar, el pedido queda activo y la web se actualiza al instante (Socket.IO)
+    W->>A: El repartidor toma el domicilio o lo marca pagado
+    A->>M: "Tu pedido va en camino"
     M->>C: Aviso
 ```
 
@@ -54,7 +54,7 @@ Cambiar de proveedor no requiere tocar código: solo el `.env` y reiniciar la AP
 
 1. Deja `WHATSAPP_PROVIDER="simulado"` en `apps/api/.env`.
 2. Entra a la web como administrador y abre **Simulador WhatsApp**.
-3. Escribe como cliente, o usa los mensajes de ejemplo. Los pedidos que confirmes son reales: aparecen en **Pedidos** y **Cocina**, y al cambiarles el estado verás los avisos en el chat.
+3. Escribe como cliente, o usa los mensajes de ejemplo. Los pedidos que confirmes son reales: aparecen en **Pedidos**, y al tomarlos o cerrarlos verás los avisos en el chat.
 
 ## Conectarlo a Telegram (lo más fácil)
 
@@ -91,7 +91,7 @@ Reinicia la API. En la terminal debe aparecer `Bot de Telegram @tu_bot escuchand
 2. La primera vez, el bot pide tu número: toca **📱 Compartir mi número**. Así el sistema te registra como cliente, igual que por WhatsApp.
 3. Pide: *2 hamburguesas y una limonada*, *listo*, *a domicilio*, tu dirección, *sí*.
 
-El pedido aparece en **Pedidos** y **Cocina** con el canal *Telegram*, y los avisos de estado llegan al chat.
+El pedido aparece en **Pedidos** con el canal *Telegram*, y los avisos de estado llegan al chat.
 
 | Mensaje en la API | Causa |
 |---|---|

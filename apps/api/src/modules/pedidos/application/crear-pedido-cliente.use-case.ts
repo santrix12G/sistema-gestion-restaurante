@@ -20,7 +20,7 @@ export interface SolicitudPedidoCliente {
 
 /**
  * Pedido que hace el propio cliente por el chatbot (WhatsApp o Telegram).
- * Por ahora el pago es en efectivo al recibir, así que entra confirmado.
+ * Por ahora el pago es en efectivo al recibir, así que entra activo.
  */
 @Injectable()
 export class CrearPedidoClienteUseCase {
@@ -48,7 +48,6 @@ export class CrearPedidoClienteUseCase {
     const pedido = await this.pedidos.crear({
       tipo: solicitud.tipo,
       canal: solicitud.canal,
-      estado: 'CONFIRMADO',
       clienteId: solicitud.clienteId,
       claveIdempotencia: solicitud.claveIdempotencia,
       entrega,

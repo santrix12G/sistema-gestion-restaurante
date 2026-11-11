@@ -19,7 +19,7 @@ export interface SolicitudPedidoLocal {
   claveIdempotencia?: string;
 }
 
-/** Pedido que registra el personal desde la web o la app: en mesa o para recoger. Queda confirmado de una vez. */
+/** Pedido que registra el personal desde la web o la app: en mesa o para recoger. Queda activo de una vez. */
 @Injectable()
 export class CrearPedidoUseCase {
   constructor(
@@ -52,7 +52,6 @@ export class CrearPedidoUseCase {
     const pedido = await this.pedidos.crear({
       tipo: solicitud.tipo,
       canal: solicitud.canal ?? 'WEB',
-      estado: 'CONFIRMADO',
       mesaId,
       clienteId,
       creadoPorId: usuario.id,

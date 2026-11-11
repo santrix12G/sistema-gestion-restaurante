@@ -1,6 +1,6 @@
 // Puerto de persistencia: los casos de uso dependen de esta interfaz, no de Prisma.
 import { PedidoEvento } from '../../../shared/eventos';
-import { EstadoPedido, LineaCalculada, TipoPedido } from '../domain/pedido';
+import { EstadoCierre, EstadoPedido, LineaCalculada, TipoPedido } from '../domain/pedido';
 
 export type CanalPedido = 'WEB' | 'MOVIL' | 'WHATSAPP' | 'TELEGRAM';
 
@@ -11,6 +11,8 @@ export interface PedidoVista {
   canal: CanalPedido;
   estado: EstadoPedido;
   mesa: { numero: number } | null;
+  /** Mesero que lo registró. Vacío si llegó por el chatbot */
+  creadoPor: { id: string; nombre: string } | null;
   cliente: { nombre: string | null; telefono: string } | null;
   entrega: {
     direccionTexto: string;
@@ -30,7 +32,6 @@ export interface PedidoVista {
 export interface NuevoPedido {
   tipo: TipoPedido;
   canal: CanalPedido;
-  estado: EstadoPedido;
   mesaId?: string;
   clienteId?: string;
   creadoPorId?: string;
@@ -48,12 +49,12 @@ export interface PedidoRepository {
   crear(pedido: NuevoPedido): Promise<PedidoVista>;
   buscarPorClave(clave: string): Promise<PedidoVista | null>;
   obtener(id: string): Promise<PedidoVista | null>;
-  listar(estados: EstadoPedido[]): Promise<PedidoVista[]>;
-  /**
-   * Cambia el estado solo si sigue siendo `desde`. Devuelve false si otro usuario lo cambió antes.
-   * Con `repartidorId`, el domicilio queda asignado a ese repartidor.
-   */
-  cambiarEstado(id: string, desde: EstadoPedido, hasta: EstadoPedido, usuarioId: string, repartidorId?: string): Promise<boolean>;
+  /** Los activos, del más antiguo al más nuevo. Los cerrados (`desde` una fecha), del más reciente al más antiguo. */
+  listar(filtro: { estados: EstadoPedido[]; desde?: Date }): Promise<PedidoVista[]>;
+  /** Cierra el pedido solo si sigue activo. Devuelve false si otro usuario lo cerró antes. */
+  cerrar(id: string, hasta: EstadoCierre, usuarioId: string): Promise<boolean>;
+  /** Asigna el domicilio al repartidor solo si nadie lo ha tomado. Devuelve false si otro lo tomó antes. */
+  tomarDomicilio(id: string, repartidorId: string): Promise<boolean>;
 }
 
 export const PEDIDO_REPOSITORY = Symbol('PedidoRepository');

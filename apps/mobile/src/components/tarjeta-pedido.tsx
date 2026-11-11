@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Text, View } from 'react-native';
-import { destino, hace, pesos } from '@/lib/formato';
+import { destino, hace, pesos, situacion } from '@/lib/formato';
 import { Pedido } from '@/lib/tipos';
 import { COLOR, estilos, Insignia } from './ui';
 
@@ -10,7 +10,7 @@ export function TarjetaPedido({ pedido, children, extra }: { pedido: Pedido; chi
     <View style={estilos.tarjeta}>
       <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
         <Text style={{ fontSize: 18, fontWeight: '800', color: COLOR.texto }}>#{pedido.numero}</Text>
-        <Insignia estado={pedido.estado} />
+        <Insignia {...situacion(pedido)} />
       </View>
       <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
         <Text style={{ fontSize: 16, fontWeight: '600', color: COLOR.texto, flexShrink: 1 }}>{destino(pedido)}</Text>

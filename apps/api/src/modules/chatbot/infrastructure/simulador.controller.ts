@@ -23,7 +23,7 @@ class MensajeSimuladoDto {
 
 /**
  * Chatea con el bot desde la aplicación web, sin WhatsApp. Pasa por el mismo caso de uso que el webhook,
- * así que los pedidos son reales y aparecen en cocina.
+ * así que los pedidos son reales y aparecen en la lista de pedidos.
  */
 @Controller('chatbot/simulador')
 @Roles('ADMIN')

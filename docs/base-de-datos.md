@@ -6,7 +6,7 @@ Corresponde a la Fase 2 de la guía metodológica. El esquema está en [`schema.
 
 | Módulo | Tablas | Qué guarda |
 |---|---|---|
-| Personal | `usuarios` | Administradores, meseros, cocina y repartidores, con su rol |
+| Personal | `usuarios` | Administradores, meseros y repartidores, con su rol |
 | Clientes | `clientes`, `direcciones` | El cliente se identifica por teléfono y puede tener varias direcciones |
 | Catálogo | `categorias`, `productos` | El menú, con sinónimos para que el chatbot reconozca los productos |
 | Pedidos | `mesas`, `pedidos`, `detalles_pedido`, `historial_estados_pedido` | Pedidos de los tres canales, y quién cambió cada estado y cuándo |
@@ -51,7 +51,7 @@ erDiagram
 - **Reintentos sin duplicados:** WhatsApp y las pasarelas repiten sus notificaciones. Lo impiden `wa_message_id` (guarda el identificador del mensaje en WhatsApp o Telegram), `clave_idempotencia` y `referencia_externa`, que son únicos.
 - **Reglas en la base de datos:** el total debe ser subtotal más domicilio, un pedido de mesa necesita mesa, un domicilio necesita cliente y un pedido no admite dos pagos aprobados. Están en la migración `reglas_integridad`.
 - **Fechas:** se guardan con zona horaria (`timestamptz`), y la hora de Colombia se calcula al mostrarlas.
-- **Identificadores:** UUID generados por PostgreSQL. `pedidos.numero` es el número corto que ven el cliente y la cocina.
+- **Identificadores:** UUID generados por PostgreSQL. `pedidos.numero` es el número corto que ven el cliente y el personal.
 
 ## Conectar con Supabase
 

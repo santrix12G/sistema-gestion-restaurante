@@ -4,18 +4,29 @@ import { Pedido } from '@/lib/tipos';
 
 const CANAL: Record<Pedido['canal'], string> = { WEB: 'Local', MOVIL: 'App', WHATSAPP: 'WhatsApp', TELEGRAM: 'Telegram' };
 
-export function TarjetaPedido({ pedido, acciones, grande = false }: { pedido: Pedido; acciones?: ReactNode; grande?: boolean }) {
+export function TarjetaPedido({ pedido, acciones }: { pedido: Pedido; acciones?: ReactNode }) {
   return (
     <article className="flex flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-stone-200">
       <header className="mb-3 flex items-start justify-between gap-2">
         <div>
-          <p className={`font-bold ${grande ? 'text-xl' : 'text-base'}`}>#{pedido.numero} · {destino(pedido)}</p>
-          <p className="text-xs text-stone-500">{CANAL[pedido.canal]} · {hace(pedido.creadoEn)}</p>
+          <p className="font-bold">#{pedido.numero} · {destino(pedido)}</p>
+          <p className="text-xs text-stone-500">
+            {CANAL[pedido.canal]}{pedido.creadoPor && ` · ${pedido.creadoPor.nombre}`} · {hace(pedido.creadoEn)}
+          </p>
         </div>
-        {!grande && <p className="text-sm font-semibold">{pesos(pedido.total)}</p>}
+        <p className="text-sm font-semibold">{pesos(pedido.total)}</p>
       </header>
-      {pedido.entrega && <p className="mb-3 text-sm text-stone-700">📍 {pedido.entrega.direccionTexto}</p>}
-      <ul className={`mb-3 space-y-1 ${grande ? 'text-base' : 'text-sm'}`}>
+      {pedido.entrega && (
+        <div className="mb-3 space-y-1 text-sm text-stone-700">
+          <p>📍 {pedido.entrega.direccionTexto}</p>
+          {pedido.estado === 'ACTIVO' && (
+            <p className={`text-xs font-semibold ${pedido.entrega.repartidor ? 'text-sky-700' : 'text-amber-700'}`}>
+              {pedido.entrega.repartidor ? `🛵 En camino con ${pedido.entrega.repartidor.nombre}` : 'Esperando repartidor'}
+            </p>
+          )}
+        </div>
+      )}
+      <ul className="mb-3 space-y-1 text-sm">
         {pedido.detalles.map((d) => (
           <li key={d.id}>
             <span className="font-semibold">{d.cantidad}×</span> {d.nombreProducto}

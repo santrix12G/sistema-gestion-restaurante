@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 import { leerSesionGuardada, URL_API } from './api';
 
 /**
- * Llama a `alAvisar` en cuanto entra un pedido o cambia de estado, sin esperar a la siguiente consulta.
+ * Llama a `alAvisar` en cuanto entra un pedido, sale a reparto o se cierra, sin esperar a la siguiente consulta.
  * Si el socket se cae, la página sigue al día con su consulta periódica.
  */
 export function useTiempoReal(alAvisar: () => void) {

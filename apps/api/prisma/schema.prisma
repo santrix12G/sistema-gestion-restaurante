@@ -14,7 +14,6 @@ datasource db {
 enum RolUsuario {
   ADMIN
   MESERO
-  COCINA
   REPARTIDOR
 
   @@map("rol_usuario")
@@ -45,13 +44,11 @@ enum CanalChat {
   @@map("canal_chat")
 }
 
+/// Un pedido está abierto (ACTIVO) hasta que se cobra o se cancela.
+/// Si un domicilio va en camino lo dice su entrega, no el pedido
 enum EstadoPedido {
-  PENDIENTE
-  CONFIRMADO
-  EN_PREPARACION
-  LISTO
-  EN_CAMINO
-  ENTREGADO
+  ACTIVO
+  PAGADO
   CANCELADO
 
   @@map("estado_pedido")
@@ -217,16 +214,16 @@ model Mesa {
 
 model Pedido {
   id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  /// Número corto que ven el cliente y la cocina
+  /// Número corto que ven el cliente y el personal
   numero            Int          @unique @default(autoincrement())
   /// Evita duplicar el pedido si WhatsApp o la app móvil reintentan
   claveIdempotencia String?      @unique @map("clave_idempotencia")
   tipo              TipoPedido
   canal             CanalPedido
-  estado            EstadoPedido @default(PENDIENTE)
+  estado            EstadoPedido @default(ACTIVO)
   clienteId         String?      @map("cliente_id") @db.Uuid
   mesaId            String?      @map("mesa_id") @db.Uuid
-  /// Mesero que lo registró. Vacío si lo creó el cliente por WhatsApp o la app móvil
+  /// Mesero que lo registró. Vacío si lo creó el cliente por WhatsApp o Telegram
   creadoPorId       String?      @map("creado_por_id") @db.Uuid
   subtotal          Int
   costoDomicilio    Int          @default(0) @map("costo_domicilio")

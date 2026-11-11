@@ -7,14 +7,13 @@ import { useSesion } from '@/lib/sesion';
 import { Rol } from '@/lib/tipos';
 
 const NAVEGACION: { ruta: string; texto: string; roles: Rol[] }[] = [
-  { ruta: '/pedidos', texto: 'Pedidos', roles: ['ADMIN', 'MESERO', 'COCINA', 'REPARTIDOR'] },
+  { ruta: '/pedidos', texto: 'Pedidos', roles: ['ADMIN', 'MESERO', 'REPARTIDOR'] },
   { ruta: '/pedidos/nuevo', texto: 'Nuevo pedido', roles: ['ADMIN', 'MESERO'] },
-  { ruta: '/cocina', texto: 'Cocina', roles: ['ADMIN', 'COCINA'] },
-  { ruta: '/menu', texto: 'Menú', roles: ['ADMIN', 'COCINA'] },
+  { ruta: '/menu', texto: 'Menú', roles: ['ADMIN', 'MESERO'] },
   { ruta: '/chatbot', texto: 'Simulador WhatsApp', roles: ['ADMIN'] },
 ];
 
-const NOMBRE_ROL: Record<Rol, string> = { ADMIN: 'Administrador', MESERO: 'Mesero', COCINA: 'Cocina', REPARTIDOR: 'Repartidor' };
+const NOMBRE_ROL: Record<Rol, string> = { ADMIN: 'Administrador', MESERO: 'Mesero', REPARTIDOR: 'Repartidor' };
 
 export default function PanelLayout({ children }: { children: ReactNode }) {
   const { usuario, lista, salir } = useSesion();

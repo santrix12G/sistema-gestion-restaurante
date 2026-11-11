@@ -20,7 +20,7 @@ function TextoWhatsApp({ texto }: { texto: string }) {
 
 /**
  * Habla con el bot como si fuera un cliente de WhatsApp. Los pedidos que se confirman aquí son reales:
- * aparecen en Pedidos y en Cocina.
+ * aparecen en Pedidos.
  */
 export default function SimuladorChatbot() {
   const [telefono, setTelefono] = useState('3001234567');
@@ -98,7 +98,7 @@ export default function SimuladorChatbot() {
             </div>
           </div>
           <p className="text-xs text-stone-500">
-            Los pedidos confirmados aquí son reales y llegan a cocina. Con WhatsApp real conectado (Twilio o Meta), el simulador se desactiva.
+            Los pedidos confirmados aquí son reales y aparecen en Pedidos. Con WhatsApp real conectado (Twilio o Meta), el simulador se desactiva.
           </p>
         </aside>
 

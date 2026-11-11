@@ -1,5 +1,5 @@
 import { DomainError } from '../../../shared/domain-error';
-import { calcularTotales, EstadoPedido, Rol, TipoPedido, validarCambioEstado } from './pedido';
+import { calcularTotales, EstadoCierre, PedidoParaPermisos, Rol, validarCierre, validarTomaDomicilio } from './pedido';
 
 const linea = (precioUnitario: number, cantidad: number) => ({ productoId: 'p', nombre: 'Limonada', precioUnitario, cantidad });
 
@@ -27,48 +27,59 @@ describe('calcularTotales', () => {
   });
 });
 
-describe('validarCambioEstado', () => {
-  const pedido = (estado: EstadoPedido, tipo: TipoPedido = 'MESA') => ({ estado, tipo });
-  const permite = (estado: EstadoPedido, nuevo: EstadoPedido, rol: Rol, tipo: TipoPedido = 'MESA') =>
-    error(() => validarCambioEstado(pedido(estado, tipo), nuevo, rol)) === undefined;
+describe('validarCierre', () => {
+  const mesa: PedidoParaPermisos = { estado: 'ACTIVO', tipo: 'MESA', creadoPorId: 'mesero-1' };
+  const domicilio: PedidoParaPermisos = { estado: 'ACTIVO', tipo: 'DOMICILIO', repartidorId: 'repartidor-1' };
+  const recogerChatbot: PedidoParaPermisos = { estado: 'ACTIVO', tipo: 'RECOGER', creadoPorId: null };
+  const cierra = (p: PedidoParaPermisos, rol: Rol, usuarioId: string, nuevo: EstadoCierre = 'PAGADO') =>
+    error(() => validarCierre(p, nuevo, rol, usuarioId));
 
-  it('sigue el flujo de un pedido en mesa', () => {
-    expect(permite('CONFIRMADO', 'EN_PREPARACION', 'COCINA')).toBe(true);
-    expect(permite('EN_PREPARACION', 'LISTO', 'COCINA')).toBe(true);
-    expect(permite('LISTO', 'ENTREGADO', 'MESERO')).toBe(true);
+  it('el mesero cierra solo los pedidos que registró', () => {
+    expect(cierra(mesa, 'MESERO', 'mesero-1')).toBeUndefined();
+    expect(cierra(mesa, 'MESERO', 'mesero-1', 'CANCELADO')).toBeUndefined();
+    expect(cierra(mesa, 'MESERO', 'mesero-2')?.message).toMatch(/otro mesero/);
   });
 
-  it('sigue el flujo de un domicilio', () => {
-    expect(permite('LISTO', 'EN_CAMINO', 'REPARTIDOR', 'DOMICILIO')).toBe(true);
-    expect(permite('EN_CAMINO', 'ENTREGADO', 'REPARTIDOR', 'DOMICILIO')).toBe(true);
+  it('el repartidor cierra solo los domicilios que lleva', () => {
+    expect(cierra(domicilio, 'REPARTIDOR', 'repartidor-1')).toBeUndefined();
+    expect(cierra(domicilio, 'REPARTIDOR', 'repartidor-2')?.message).toMatch(/otro repartidor/);
+    expect(cierra({ ...domicilio, repartidorId: null }, 'REPARTIDOR', 'repartidor-1')?.message).toMatch(/Primero toma/);
+    expect(cierra(domicilio, 'MESERO', 'mesero-1')?.tipo).toBe('prohibido');
+    expect(cierra(mesa, 'REPARTIDOR', 'repartidor-1')?.tipo).toBe('prohibido');
   });
 
-  it('no permite saltarse estados ni volver atrás', () => {
-    expect(error(() => validarCambioEstado(pedido('CONFIRMADO'), 'LISTO', 'ADMIN'))?.tipo).toBe('conflicto');
-    expect(error(() => validarCambioEstado(pedido('LISTO'), 'EN_PREPARACION', 'ADMIN'))?.tipo).toBe('conflicto');
-    expect(error(() => validarCambioEstado(pedido('ENTREGADO'), 'CANCELADO', 'ADMIN'))?.tipo).toBe('conflicto');
+  it('los pedidos del chatbot para recoger los cierra el administrador', () => {
+    expect(cierra(recogerChatbot, 'MESERO', 'mesero-1')?.message).toMatch(/administrador/);
+    expect(cierra(recogerChatbot, 'ADMIN', 'admin-1')).toBeUndefined();
   });
 
-  it('no permite cancelar lo que ya se está cocinando', () => {
-    expect(error(() => validarCambioEstado(pedido('EN_PREPARACION'), 'CANCELADO', 'ADMIN'))?.message).toMatch(/ya no se puede cancelar/);
+  it('el administrador cierra cualquier pedido', () => {
+    expect(cierra(mesa, 'ADMIN', 'admin-1', 'CANCELADO')).toBeUndefined();
+    expect(cierra({ ...domicilio, repartidorId: null }, 'ADMIN', 'admin-1')).toBeUndefined();
   });
 
-  it('separa el camino de mesa y el de domicilio', () => {
-    expect(permite('LISTO', 'EN_CAMINO', 'ADMIN', 'MESA')).toBe(false);
-    expect(permite('LISTO', 'ENTREGADO', 'ADMIN', 'DOMICILIO')).toBe(false);
+  it('un pedido cerrado no cambia más', () => {
+    expect(cierra({ ...mesa, estado: 'PAGADO' }, 'ADMIN', 'admin-1', 'CANCELADO')?.message).toMatch(/ya está pagado/);
+    expect(cierra({ ...mesa, estado: 'CANCELADO' }, 'MESERO', 'mesero-1')?.tipo).toBe('conflicto');
+  });
+});
+
+describe('validarTomaDomicilio', () => {
+  const libre: PedidoParaPermisos = { estado: 'ACTIVO', tipo: 'DOMICILIO', repartidorId: null };
+  const toma = (p: PedidoParaPermisos, rol: Rol = 'REPARTIDOR', id = 'repartidor-1') => error(() => validarTomaDomicilio(p, rol, id));
+
+  it('un repartidor toma un domicilio libre', () => {
+    expect(toma(libre)).toBeUndefined();
   });
 
-  it('solo el repartidor que sacó el domicilio puede entregarlo', () => {
-    const enCamino = { estado: 'EN_CAMINO' as const, tipo: 'DOMICILIO' as const, repartidorId: 'repartidor-1' };
-    expect(error(() => validarCambioEstado(enCamino, 'ENTREGADO', 'REPARTIDOR', 'repartidor-1'))).toBeUndefined();
-    expect(error(() => validarCambioEstado(enCamino, 'ENTREGADO', 'REPARTIDOR', 'repartidor-2'))?.message).toMatch(/otro repartidor/);
-    expect(error(() => validarCambioEstado(enCamino, 'ENTREGADO', 'ADMIN', 'admin-1'))).toBeUndefined();
+  it('no se toma un domicilio que ya lleva alguien, ni uno cerrado', () => {
+    expect(toma({ ...libre, repartidorId: 'repartidor-2' })?.message).toMatch(/Otro repartidor/);
+    expect(toma({ ...libre, estado: 'CANCELADO' })?.tipo).toBe('conflicto');
   });
 
-  it('aplica los permisos por rol', () => {
-    expect(error(() => validarCambioEstado(pedido('CONFIRMADO'), 'EN_PREPARACION', 'MESERO'))?.tipo).toBe('prohibido');
-    expect(permite('CONFIRMADO', 'CANCELADO', 'COCINA')).toBe(false);
-    expect(permite('LISTO', 'ENTREGADO', 'REPARTIDOR', 'MESA')).toBe(false);
-    expect(permite('EN_CAMINO', 'ENTREGADO', 'MESERO', 'DOMICILIO')).toBe(false);
+  it('solo los repartidores toman domicilios, y solo domicilios', () => {
+    expect(toma(libre, 'MESERO')?.tipo).toBe('prohibido');
+    expect(toma(libre, 'ADMIN')?.tipo).toBe('prohibido');
+    expect(toma({ ...libre, tipo: 'MESA' })?.tipo).toBe('conflicto');
   });
 });

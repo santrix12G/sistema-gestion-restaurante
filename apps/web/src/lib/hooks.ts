@@ -5,7 +5,7 @@ import { mensajeDeError } from './api';
 
 /**
  * Carga datos de la API y, si se indica, los recarga cada cierto tiempo.
- * Así la cocina y el tablero de pedidos se mantienen al día sin recargar la página.
+ * Así el tablero de pedidos se mantiene al día sin recargar la página.
  */
 export function useDatos<T>(cargar: () => Promise<T>, cadaMs?: number) {
   const [datos, setDatos] = useState<T>();

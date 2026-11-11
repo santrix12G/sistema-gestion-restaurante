@@ -14,7 +14,6 @@ function contrasena(variable) {
 const USUARIOS = [
   { nombre: 'Administrador', email: 'admin@restaurante.test', rol: 'ADMIN', variable: 'SEED_ADMIN_PASSWORD' },
   { nombre: 'Mesero', email: 'mesero@restaurante.test', rol: 'MESERO', variable: 'SEED_STAFF_PASSWORD' },
-  { nombre: 'Cocina', email: 'cocina@restaurante.test', rol: 'COCINA', variable: 'SEED_STAFF_PASSWORD' },
   { nombre: 'Repartidor', email: 'repartidor@restaurante.test', rol: 'REPARTIDOR', variable: 'SEED_STAFF_PASSWORD' },
 ];
 

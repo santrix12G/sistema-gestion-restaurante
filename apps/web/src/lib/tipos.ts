@@ -1,6 +1,7 @@
 // Formas de los datos que devuelve la API
-export type Rol = 'ADMIN' | 'MESERO' | 'COCINA' | 'REPARTIDOR';
-export type EstadoPedido = 'PENDIENTE' | 'CONFIRMADO' | 'EN_PREPARACION' | 'LISTO' | 'EN_CAMINO' | 'ENTREGADO' | 'CANCELADO';
+export type Rol = 'ADMIN' | 'MESERO' | 'REPARTIDOR';
+/** Un pedido está activo hasta que se cobra o se cancela. Si un domicilio va en camino lo dice su entrega */
+export type EstadoPedido = 'ACTIVO' | 'PAGADO' | 'CANCELADO';
 export type TipoPedido = 'MESA' | 'DOMICILIO' | 'RECOGER';
 
 export interface UsuarioSesion {
@@ -42,6 +43,8 @@ export interface Pedido {
   canal: 'WEB' | 'MOVIL' | 'WHATSAPP' | 'TELEGRAM';
   estado: EstadoPedido;
   mesa: { numero: number } | null;
+  /** Mesero que lo registró. Vacío si llegó por el chatbot */
+  creadoPor: { id: string; nombre: string } | null;
   cliente: { nombre: string | null; telefono: string } | null;
   subtotal: number;
   costoDomicilio: number;
@@ -52,7 +55,7 @@ export interface Pedido {
     direccionTexto: string;
     estado: string;
     direccion: { barrio: string | null; referencia: string | null };
-    /** Quién lo sacó a reparto: solo esa persona puede marcarlo entregado */
+    /** Quién lo lleva: solo esa persona (o el administrador) puede cerrarlo */
     repartidor: { id: string; nombre: string } | null;
   } | null;
   detalles: { id: string; nombreProducto: string; precioUnitario: number; cantidad: number; subtotal: number; notas: string | null }[];

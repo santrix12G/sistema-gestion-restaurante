@@ -5,24 +5,25 @@ import { TarjetaPedido } from '@/components/tarjeta-pedido';
 import { Aviso, Boton, Cargando, COLOR, estilos, Seccion, Vacio } from '@/components/ui';
 import { avisar, confirmar } from '@/lib/confirmar';
 import { pesos } from '@/lib/formato';
-import { cambiarEstado, usePedidos } from '@/lib/pedidos';
+import { cerrarPedido, tomarDomicilio, usePedidos } from '@/lib/pedidos';
 import { useUsuario } from '@/lib/sesion';
 import { EstadoPedido, Pedido } from '@/lib/tipos';
 
-const ESTADOS: EstadoPedido[] = ['LISTO', 'EN_CAMINO'];
+const ESTADOS: EstadoPedido[] = ['ACTIVO'];
 const CIUDAD = process.env.EXPO_PUBLIC_CIUDAD ?? '';
 
-/** Domicilios: los que lleva este repartidor arriba, y abajo los que cocina ya terminó y esperan salir. */
+/** Domicilios activos: los que lleva este repartidor arriba, y abajo los que esperan que alguien los lleve. */
 export default function Domicilios() {
   const usuario = useUsuario();
   const { pedidos, error, recargando, recargar, cargar } = usePedidos(ESTADOS);
   const [ocupado, setOcupado] = useState<string | null>(null);
 
   const domicilios = (pedidos ?? []).filter((p) => p.tipo === 'DOMICILIO');
-  const mios = domicilios.filter((p) => p.estado === 'EN_CAMINO' && p.entrega?.repartidor?.id === usuario?.id);
-  const porSalir = domicilios.filter((p) => p.estado === 'LISTO');
+  const mios = domicilios.filter((p) => p.entrega?.repartidor?.id === usuario?.id);
+  const porSalir = domicilios.filter((p) => !p.entrega?.repartidor);
   // El administrador también ve los que llevan otros repartidores
-  const deOtros = usuario?.rol === 'ADMIN' ? domicilios.filter((p) => p.estado === 'EN_CAMINO' && !mios.includes(p)) : [];
+  const deOtros = usuario?.rol === 'ADMIN' ? domicilios.filter((p) => p.entrega?.repartidor && !mios.includes(p)) : [];
+  const esRepartidor = usuario?.rol === 'REPARTIDOR';
 
   // Vibra cuando hay un domicilio nuevo listo para salir (no al abrir la pantalla)
   const antes = useRef<Set<string> | null>(null);
@@ -33,17 +34,32 @@ export default function Domicilios() {
     antes.current = ahora;
   }, [pedidos]);
 
-  async function cambiar(pedido: Pedido, estado: EstadoPedido) {
-    if (estado === 'ENTREGADO') {
+  async function actuar(pedido: Pedido, accion: 'TOMAR' | 'PAGADO' | 'CANCELADO') {
+    if (accion === 'PAGADO') {
       const seguro = await confirmar(`Entregar pedido #${pedido.numero}`, `¿Ya lo entregaste y cobraste ${pesos(pedido.total)}?`, 'Sí, entregado');
       if (!seguro) return;
     }
+    if (accion === 'CANCELADO') {
+      const seguro = await confirmar(`Cancelar pedido #${pedido.numero}`, 'El cliente no lo recibió. Esta acción no se puede deshacer.', 'Cancelar pedido');
+      if (!seguro) return;
+    }
     setOcupado(pedido.id);
-    const fallo = await cambiarEstado(pedido, estado);
+    const fallo = accion === 'TOMAR' ? await tomarDomicilio(pedido) : await cerrarPedido(pedido, accion);
     if (fallo) avisar('No se pudo cambiar el domicilio', fallo);
     await cargar();
     setOcupado(null);
   }
+
+  const cerrar = (p: Pedido, texto: string) => (
+    <>
+      <Boton variante="exito" ocupado={ocupado === p.id} alPulsar={() => actuar(p, 'PAGADO')} icono={<Ionicons name="checkmark-done" size={20} color="#fff" />}>
+        {texto}
+      </Boton>
+      <Boton variante="peligro" ocupado={ocupado === p.id} alPulsar={() => actuar(p, 'CANCELADO')}>
+        Cancelar
+      </Boton>
+    </>
+  );
 
   return (
     <ScrollView
@@ -60,24 +76,21 @@ export default function Domicilios() {
           {mios.length === 0 ? <Vacio>No llevas ningún domicilio. Toma uno de la lista de abajo.</Vacio> : null}
           {mios.map((p) => (
             <TarjetaPedido key={p.id} pedido={p} extra={<Entrega pedido={p} />}>
-              <Boton
-                variante="exito"
-                ocupado={ocupado === p.id}
-                alPulsar={() => cambiar(p, 'ENTREGADO')}
-                icono={<Ionicons name="checkmark-done" size={20} color="#fff" />}
-              >
-                Entregado
-              </Boton>
+              {cerrar(p, 'Entregado y pagado')}
             </TarjetaPedido>
           ))}
 
-          <Seccion titulo="Listos para salir" cantidad={porSalir.length} />
-          {porSalir.length === 0 ? <Vacio>Cuando cocina termine un domicilio, aparece aquí y el celular vibra.</Vacio> : null}
+          <Seccion titulo="Disponibles para llevar" cantidad={porSalir.length} />
+          {porSalir.length === 0 ? <Vacio>Cuando entre un domicilio por el chatbot, aparece aquí y el celular vibra.</Vacio> : null}
           {porSalir.map((p) => (
             <TarjetaPedido key={p.id} pedido={p} extra={<Entrega pedido={p} />}>
-              <Boton ocupado={ocupado === p.id} alPulsar={() => cambiar(p, 'EN_CAMINO')} icono={<Ionicons name="bicycle" size={20} color="#fff" />}>
-                Salir a entregar
-              </Boton>
+              {esRepartidor ? (
+                <Boton ocupado={ocupado === p.id} alPulsar={() => actuar(p, 'TOMAR')} icono={<Ionicons name="bicycle" size={20} color="#fff" />}>
+                  Llevar domicilio
+                </Boton>
+              ) : (
+                cerrar(p, 'Marcar pagado')
+              )}
             </TarjetaPedido>
           ))}
 
@@ -86,9 +99,7 @@ export default function Domicilios() {
               <Seccion titulo="Llevan otros repartidores" cantidad={deOtros.length} />
               {deOtros.map((p) => (
                 <TarjetaPedido key={p.id} pedido={p} extra={<Entrega pedido={p} />}>
-                  <Boton variante="secundario" ocupado={ocupado === p.id} alPulsar={() => cambiar(p, 'ENTREGADO')}>
-                    Marcar entregado
-                  </Boton>
+                  {cerrar(p, 'Marcar pagado')}
                 </TarjetaPedido>
               ))}
             </>
@@ -122,7 +133,7 @@ function Entrega({ pedido }: { pedido: Pedido }) {
           {pedido.cliente.nombre ?? 'Cliente'} · {pedido.cliente.telefono}
         </Text>
       ) : null}
-      {entrega.repartidor && pedido.estado === 'EN_CAMINO' ? <Text style={{ color: COLOR.suave }}>Lo lleva {entrega.repartidor.nombre}</Text> : null}
+      {entrega.repartidor ? <Text style={{ color: COLOR.suave }}>Lo lleva {entrega.repartidor.nombre}</Text> : null}
       <Text style={{ color: COLOR.marcaOscuro, fontWeight: '700' }}>Cobrar en efectivo: {pesos(pedido.total)}</Text>
       <View style={[estilos.fila, { flexWrap: 'wrap' }]}>
         {telefono ? (
