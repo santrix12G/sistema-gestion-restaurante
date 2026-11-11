@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma.service';
-import { EstadoCierre, EstadoPedido } from '../domain/pedido';
+import { Alcance, EstadoCierre, EstadoPedido } from '../domain/pedido';
 import { NuevoPedido, PedidoRepository, PedidoVista } from '../application/pedido.repository';
 
 const VISTA = {
@@ -29,6 +29,22 @@ const VISTA = {
   },
   detalles: { select: { id: true, nombreProducto: true, precioUnitario: true, cantidad: true, subtotal: true, notas: true } },
 } satisfies Prisma.PedidoSelect;
+
+function filtroDe(alcance: Alcance): Prisma.PedidoWhereInput {
+  switch (alcance.tipo) {
+    case 'todos':
+      return {};
+    case 'registrados_por':
+      return { creadoPorId: alcance.usuarioId };
+    case 'domicilios_de':
+      return {
+        tipo: 'DOMICILIO',
+        entrega: alcance.incluirLibres
+          ? { OR: [{ repartidorId: alcance.repartidorId }, { repartidorId: null }] }
+          : { repartidorId: alcance.repartidorId },
+      };
+  }
+}
 
 @Injectable()
 export class PrismaPedidoRepository implements PedidoRepository {
@@ -73,10 +89,11 @@ export class PrismaPedidoRepository implements PedidoRepository {
     return this.prisma.pedido.findUnique({ where: { id }, select: VISTA });
   }
 
-  listar({ estados, desde }: { estados: EstadoPedido[]; desde?: Date }) {
+  listar({ estados, alcance, cerradosDesde }: { estados: EstadoPedido[]; alcance: Alcance; cerradosDesde?: Date }) {
     return this.prisma.pedido.findMany({
-      where: { estado: { in: estados }, ...(desde && { creadoEn: { gte: desde } }) },
-      orderBy: { creadoEn: desde ? 'desc' : 'asc' },
+      // Un pedido cerrado ya no cambia: su última actualización es la hora en que se cerró
+      where: { estado: { in: estados }, ...(cerradosDesde && { actualizadoEn: { gte: cerradosDesde } }), ...filtroDe(alcance) },
+      orderBy: cerradosDesde ? { actualizadoEn: 'desc' } : { creadoEn: 'asc' },
       select: VISTA,
       take: 300,
     });

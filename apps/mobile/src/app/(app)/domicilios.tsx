@@ -1,35 +1,47 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Text, View, Vibration } from 'react-native';
+import { Historial } from '@/components/historial';
 import { TarjetaPedido } from '@/components/tarjeta-pedido';
-import { Aviso, Boton, Cargando, COLOR, estilos, Seccion, Vacio } from '@/components/ui';
+import { Aviso, Boton, Buscador, Cargando, COLOR, estilos, Seccion, Segmento, Vacio } from '@/components/ui';
+import { coincide } from '@/lib/buscar';
 import { avisar, confirmar } from '@/lib/confirmar';
 import { pesos } from '@/lib/formato';
 import { cerrarPedido, tomarDomicilio, usePedidos } from '@/lib/pedidos';
 import { useUsuario } from '@/lib/sesion';
 import { EstadoPedido, Pedido } from '@/lib/tipos';
 
-const ESTADOS: EstadoPedido[] = ['ACTIVO'];
+type Vista = 'activos' | 'hoy';
+const ACTIVOS: EstadoPedido[] = ['ACTIVO'];
+const CERRADOS: EstadoPedido[] = ['PAGADO', 'CANCELADO'];
 const CIUDAD = process.env.EXPO_PUBLIC_CIUDAD ?? '';
 
-/** Domicilios activos: los que lleva este repartidor arriba, y abajo los que esperan que alguien los lleve. */
+/**
+ * Domicilios activos: los que lleva este repartidor arriba, y abajo los que esperan que alguien los lleve.
+ * La API no le envía al repartidor los que llevan otros. La pestaña Hoy muestra los que entregó o se cancelaron.
+ */
 export default function Domicilios() {
   const usuario = useUsuario();
-  const { pedidos, error, recargando, recargar, cargar } = usePedidos(ESTADOS);
+  const [vista, setVista] = useState<Vista>('activos');
+  const [consulta, setConsulta] = useState('');
+  const { pedidos, error, recargando, recargar, cargar } = usePedidos(vista === 'activos' ? ACTIVOS : CERRADOS);
   const [ocupado, setOcupado] = useState<string | null>(null);
 
-  const domicilios = (pedidos ?? []).filter((p) => p.tipo === 'DOMICILIO');
-  const mios = domicilios.filter((p) => p.entrega?.repartidor?.id === usuario?.id);
-  const porSalir = domicilios.filter((p) => !p.entrega?.repartidor);
-  // El administrador también ve los que llevan otros repartidores
-  const deOtros = usuario?.rol === 'ADMIN' ? domicilios.filter((p) => p.entrega?.repartidor && !mios.includes(p)) : [];
+  // Al cambiar de pestaña, la lista anterior no se mezcla
+  const domicilios = (pedidos ?? []).filter((p) => p.tipo === 'DOMICILIO' && (vista === 'activos') === (p.estado === 'ACTIVO'));
+  const hallados = domicilios.filter((p) => coincide(p, consulta));
+  const buscando = consulta.trim() !== '';
+  const mios = hallados.filter((p) => p.entrega?.repartidor?.id === usuario?.id);
+  const porSalir = hallados.filter((p) => !p.entrega?.repartidor);
+  // Solo le llegan al administrador
+  const deOtros = hallados.filter((p) => p.entrega?.repartidor && !mios.includes(p));
   const esRepartidor = usuario?.rol === 'REPARTIDOR';
 
-  // Vibra cuando hay un domicilio nuevo listo para salir (no al abrir la pantalla)
+  // Vibra cuando hay un domicilio nuevo listo para salir (no al abrir la pantalla ni por la búsqueda)
   const antes = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (!pedidos) return;
-    const ahora = new Set(porSalir.map((p) => p.id));
+    if (!pedidos || vista !== 'activos') return;
+    const ahora = new Set(domicilios.filter((p) => !p.entrega?.repartidor).map((p) => p.id));
     if (antes.current && [...ahora].some((id) => !antes.current!.has(id))) Vibration.vibrate([0, 300, 150, 300]);
     antes.current = ahora;
   }, [pedidos]);
@@ -65,15 +77,27 @@ export default function Domicilios() {
     <ScrollView
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
+      keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={recargando} onRefresh={recargar} colors={[COLOR.marca]} />}
     >
+      <Segmento
+        opciones={[
+          { valor: 'activos', texto: 'Activos' },
+          { valor: 'hoy', texto: esRepartidor ? 'Mi historial de hoy' : 'Cerrados hoy' },
+        ]}
+        valor={vista}
+        alCambiar={setVista}
+      />
+      <Buscador value={consulta} onChangeText={setConsulta} placeholder="Buscar: #12, cliente, barrio, producto…" />
       <Aviso>{error}</Aviso>
       {!pedidos ? (
         error ? null : <Cargando texto="Cargando domicilios… (si la API estaba dormida, tarda cerca de un minuto)" />
+      ) : vista === 'hoy' ? (
+        <Historial pedidos={hallados} buscando={buscando} vacio="Hoy no has entregado domicilios." />
       ) : (
         <>
           <Seccion titulo="Llevando yo" cantidad={mios.length} />
-          {mios.length === 0 ? <Vacio>No llevas ningún domicilio. Toma uno de la lista de abajo.</Vacio> : null}
+          {mios.length === 0 ? <Vacio>{buscando ? 'Ninguno coincide con la búsqueda.' : 'No llevas ningún domicilio. Toma uno de la lista de abajo.'}</Vacio> : null}
           {mios.map((p) => (
             <TarjetaPedido key={p.id} pedido={p} extra={<Entrega pedido={p} />}>
               {cerrar(p, 'Entregado y pagado')}
@@ -81,7 +105,9 @@ export default function Domicilios() {
           ))}
 
           <Seccion titulo="Disponibles para llevar" cantidad={porSalir.length} />
-          {porSalir.length === 0 ? <Vacio>Cuando entre un domicilio por el chatbot, aparece aquí y el celular vibra.</Vacio> : null}
+          {porSalir.length === 0 ? (
+            <Vacio>{buscando ? 'Ninguno coincide con la búsqueda.' : 'Cuando entre un domicilio por el chatbot, aparece aquí y el celular vibra.'}</Vacio>
+          ) : null}
           {porSalir.map((p) => (
             <TarjetaPedido key={p.id} pedido={p} extra={<Entrega pedido={p} />}>
               {esRepartidor ? (

@@ -77,3 +77,32 @@ export function validarTomaDomicilio(pedido: PedidoParaPermisos, rol: Rol, usuar
   if (pedido.repartidorId === usuarioId) throw new DomainError('conflicto', 'Ya llevas este domicilio');
   if (pedido.repartidorId) throw new DomainError('conflicto', 'Otro repartidor ya tomó este domicilio');
 }
+
+/**
+ * Qué pedidos ve cada rol. El administrador ve todos. El mesero, solo los que registró.
+ * El repartidor, solo domicilios: los que lleva y, mientras están activos, los que nadie ha tomado.
+ */
+export type Alcance =
+  | { tipo: 'todos' }
+  | { tipo: 'registrados_por'; usuarioId: string }
+  | { tipo: 'domicilios_de'; repartidorId: string; incluirLibres: boolean };
+
+export function alcanceDe(rol: Rol, usuarioId: string, estados: EstadoPedido[]): Alcance {
+  if (rol === 'ADMIN') return { tipo: 'todos' };
+  if (rol === 'MESERO') return { tipo: 'registrados_por', usuarioId };
+  // En el historial solo cuentan los que llevó; un domicilio libre cerrado no fue de nadie
+  return { tipo: 'domicilios_de', repartidorId: usuarioId, incluirLibres: estados.includes('ACTIVO') };
+}
+
+/** Lo mismo que `alcanceDe`, para un solo pedido */
+export function puedeVer(pedido: PedidoParaPermisos, rol: Rol, usuarioId: string): boolean {
+  const alcance = alcanceDe(rol, usuarioId, [pedido.estado]);
+  switch (alcance.tipo) {
+    case 'todos':
+      return true;
+    case 'registrados_por':
+      return pedido.creadoPorId === usuarioId;
+    case 'domicilios_de':
+      return pedido.tipo === 'DOMICILIO' && (pedido.repartidorId === usuarioId || (alcance.incluirLibres && !pedido.repartidorId));
+  }
+}

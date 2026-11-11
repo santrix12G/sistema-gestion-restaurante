@@ -163,6 +163,23 @@ describe('pedidos', () => {
     expect((await api().get('/api/pedidos?estados=LISTO').set(como('mesero'))).status).toBe(400);
   });
 
+  it('cada rol solo ve sus pedidos: el mesero los que registró y el repartidor solo domicilios', async () => {
+    const gaseosa = await producto('Gaseosa');
+    const crear = async (rol: string) => (await api().post('/api/pedidos').set(como(rol)).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] })).body;
+    const delMesero = await crear('mesero');
+    const delAdmin = await crear('admin');
+    const ids = async (rol: string) => (await api().get('/api/pedidos').set(como(rol))).body.map((p: { id: string }) => p.id);
+
+    expect(await ids('mesero')).toContain(delMesero.id);
+    expect(await ids('mesero')).not.toContain(delAdmin.id);
+    expect(await ids('admin')).toEqual(expect.arrayContaining([delMesero.id, delAdmin.id]));
+    const delRepartidor = await api().get('/api/pedidos').set(como('repartidor'));
+    expect(delRepartidor.body.every((p: { tipo: string }) => p.tipo === 'DOMICILIO')).toBe(true);
+    // Un pedido ajeno no se puede abrir por su id
+    expect((await api().get(`/api/pedidos/${delAdmin.id}`).set(como('mesero'))).status).toBe(404);
+    expect((await api().get(`/api/pedidos/${delMesero.id}`).set(como('mesero'))).status).toBe(200);
+  });
+
   it('el administrador puede cancelar el pedido de un mesero', async () => {
     const gaseosa = await producto('Gaseosa');
     const { body: pedido } = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId, items: [{ productoId: gaseosa.id, cantidad: 1 }] });

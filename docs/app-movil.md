@@ -8,10 +8,12 @@ Usa la misma API, el mismo inicio de sesión y los mismos avisos en tiempo real 
 
 | Rol | Pestaña | Qué hace |
 |---|---|---|
-| Mesero | Pedidos | Sus pedidos activos de mesa y para recoger, para marcarlos pagados o cancelarlos |
+| Mesero | Pedidos | Sus pedidos activos de mesa y para recoger, para marcarlos pagados o cancelarlos. La pestaña **Mi historial de hoy** muestra los que cobró o canceló y cuánto lleva cobrado |
 | Mesero | Nuevo pedido | En tres pasos: mesa o para recoger (con el teléfono del cliente), productos con notas y revisión. Los agotados no se pueden elegir |
-| Repartidor | Domicilios | Arriba, los que lleva él; abajo, los disponibles para llevar (el celular vibra cuando llega uno). Muestra la dirección, el barrio, la referencia, el teléfono y cuánto cobrar. Tiene botones para llamar y abrir el mapa |
+| Repartidor | Domicilios | Arriba, los que lleva él; abajo, los disponibles para llevar (el celular vibra cuando llega uno). Muestra la dirección, el barrio, la referencia, el teléfono y cuánto cobrar. Tiene botones para llamar y abrir el mapa. **Mi historial de hoy** muestra los que entregó |
 | Administrador | Las tres | Además ve los pedidos de otros meseros y del chatbot, y los domicilios que llevan otros repartidores, y puede cerrarlos |
+
+Las dos listas tienen un buscador por número de pedido, mesa (M3) o palabra: cliente, teléfono, barrio, producto o nota.
 
 **Reglas:**
 - Al pulsar **Llevar domicilio**, el domicilio queda asignado a ese repartidor y el cliente recibe el aviso. Solo él, o un administrador, puede marcarlo entregado y pagado, o cancelarlo.

@@ -61,7 +61,9 @@ Un domicilio sigue **Activo** mientras va en camino: al tomarlo, queda a nombre 
 | Para recoger, llegado por el chatbot | El administrador |
 | Domicilio | El repartidor que lo tomó |
 
-El administrador puede cerrar cualquiera. Un pedido pagado o cancelado ya no cambia. Si dos personas cierran o toman el mismo pedido a la vez, solo se aplica el primer cambio.
+El administrador puede cerrar cualquiera. Un pedido pagado o cancelado ya no cambia.
+
+**Qué ve cada rol** (lo decide la API, en `alcanceDe` del dominio): el administrador, todos los pedidos; el mesero, solo los que registró; el repartidor, los domicilios que nadie ha tomado y los que lleva él, y en el historial, solo los que llevó. `GET /api/pedidos` devuelve los activos y `GET /api/pedidos?estados=PAGADO,CANCELADO` los cerrados hoy (hora de Colombia). Un pedido que el usuario no puede ver responde 404. Si dos personas cierran o toman el mismo pedido a la vez, solo se aplica el primer cambio.
 
 ## Pendiente para las siguientes etapas
 

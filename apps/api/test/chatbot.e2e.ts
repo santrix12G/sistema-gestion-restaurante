@@ -133,6 +133,11 @@ describe('webhook de WhatsApp', () => {
     const cambiar = (rol: string, estado: string) => api().patch(`/api/pedidos/${pedido.id}/estado`).set(como(rol)).send({ estado });
     const ultimo = async (patron: RegExp) => esperar(async () => (await salientes()).at(-1)?.texto.match(patron));
     const tomar = (rol: string) => api().post(`/api/pedidos/${pedido.id}/tomar`).set(como(rol));
+    const ids = async (rol: string, estados = '') => (await api().get(`/api/pedidos${estados && `?estados=${estados}`}`).set(como(rol))).body.map((p: { id: string }) => p.id);
+    // El repartidor lo ve entre los disponibles; el mesero no, porque no lo registró
+    expect(await ids('repartidor')).toContain(pedido.id);
+    expect(await ids('mesero')).not.toContain(pedido.id);
+    expect((await api().get(`/api/pedidos/${pedido.id}`).set(como('mesero'))).status).toBe(404);
     // El domicilio lo cierra el repartidor que lo lleva, no un mesero
     expect((await cambiar('mesero', 'PAGADO')).status).toBe(403);
     expect((await cambiar('repartidor', 'PAGADO')).body.mensaje).toMatch(/Primero toma/);
@@ -148,6 +153,9 @@ describe('webhook de WhatsApp', () => {
     expect(Object.keys(enCamino.entrega.direccion).sort()).toEqual(['barrio', 'referencia']);
     expect((await cambiar('repartidor', 'PAGADO')).body.estado).toBe('PAGADO');
     await ultimo(/entregado/);
+    // Queda en el historial del día del repartidor que lo llevó
+    expect(await ids('repartidor')).not.toContain(pedido.id);
+    expect(await ids('repartidor', 'PAGADO,CANCELADO')).toContain(pedido.id);
 
     const entrega = await prisma.entrega.findUniqueOrThrow({ where: { pedidoId: pedido.id } });
     expect(entrega.estado).toBe('ENTREGADA');

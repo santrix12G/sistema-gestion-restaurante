@@ -54,6 +54,8 @@ export interface Pedido {
   total: number;
   notas: string | null;
   creadoEn: string;
+  /** En un pedido cerrado, la hora en que se pagó o se canceló */
+  actualizadoEn: string;
   entrega: {
     direccionTexto: string;
     estado: string;

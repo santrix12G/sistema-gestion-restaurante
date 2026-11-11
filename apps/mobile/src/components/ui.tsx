@@ -103,6 +103,42 @@ export function Seccion({ titulo, cantidad }: { titulo: string; cantidad?: numbe
   );
 }
 
+/** Dos o más opciones excluyentes, como pestañas dentro de una pantalla */
+export function Segmento<T extends string>({ opciones, valor, alCambiar }: { opciones: { valor: T; texto: string }[]; valor: T; alCambiar: (v: T) => void }) {
+  return (
+    <View accessibilityRole="tablist" style={estilos.segmento}>
+      {opciones.map((o) => {
+        const activa = o.valor === valor;
+        return (
+          <Pressable
+            key={o.valor}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activa }}
+            onPress={() => alCambiar(o.valor)}
+            style={[estilos.opcionSegmento, activa && { backgroundColor: COLOR.tarjeta }]}
+          >
+            <Text style={{ fontWeight: '700', color: activa ? COLOR.texto : COLOR.suave }}>{o.texto}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function Buscador(props: Omit<TextInputProps, 'style'>) {
+  return (
+    <TextInput
+      accessibilityLabel="Buscar pedidos"
+      placeholderTextColor={COLOR.suave}
+      autoCorrect={false}
+      clearButtonMode="while-editing"
+      returnKeyType="search"
+      style={estilos.campo}
+      {...props}
+    />
+  );
+}
+
 const TONOS = {
   neutro: { fondo: '#e7e5e4', texto: '#44403c' },
   aviso: { fondo: '#fef3c7', texto: '#92400e' },
@@ -123,6 +159,8 @@ export function Insignia({ texto, tono = 'neutro' }: { texto: string; tono?: key
 export const estilos = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: COLOR.fondo },
   contenido: { padding: 16, gap: 12, paddingBottom: 32 },
+  segmento: { flexDirection: 'row', backgroundColor: '#e7e5e4', borderRadius: 12, padding: 4, gap: 4 },
+  opcionSegmento: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9 },
   tarjeta: { backgroundColor: COLOR.tarjeta, borderRadius: 14, padding: 14, gap: 10, borderWidth: 1, borderColor: '#e7e5e4' },
   boton: {
     minHeight: 48,

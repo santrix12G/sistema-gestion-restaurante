@@ -81,18 +81,21 @@ export class PedidosController {
     return this.consultar.mesas();
   }
 
-  /** Sin filtro devuelve los pedidos activos. Con ?estados=PAGADO,CANCELADO devuelve los cerrados hoy. */
+  /**
+   * Sin filtro devuelve los pedidos activos. Con ?estados=PAGADO,CANCELADO devuelve los cerrados hoy.
+   * Cada rol recibe solo los suyos: ver `alcanceDe` en el dominio.
+   */
   @Get('pedidos')
-  listar(@Query('estados') estados?: string) {
-    if (!estados) return this.consultar.listar();
+  listar(@Usuario() usuario: UsuarioActual, @Query('estados') estados?: string) {
+    if (!estados) return this.consultar.listar(usuario);
     const lista = estados.split(',') as EstadoPedido[];
     if (lista.some((e) => !ESTADOS.includes(e))) throw new BadRequestException('Estado de pedido desconocido');
-    return this.consultar.listar(lista);
+    return this.consultar.listar(usuario, lista);
   }
 
   @Get('pedidos/:id')
-  obtener(@Param('id', ParseUUIDPipe) id: string) {
-    return this.consultar.obtener(id);
+  obtener(@Param('id', ParseUUIDPipe) id: string, @Usuario() usuario: UsuarioActual) {
+    return this.consultar.obtener(id, usuario);
   }
 
   // La web envía una clave por cada intento de crear el pedido: un doble clic no lo duplica
