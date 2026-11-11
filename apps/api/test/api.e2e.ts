@@ -76,6 +76,66 @@ describe('catálogo', () => {
   });
 });
 
+describe('mesas', () => {
+  const crear = (datos: object, rol = 'admin') => api().post('/api/mesas').set(como(rol)).send(datos);
+
+  it('lista las mesas por tipo con su código', async () => {
+    const { body } = await api().get('/api/mesas').set(como('mesero'));
+    const codigos = body.map((m: { codigo: string }) => m.codigo);
+    expect(codigos.slice(0, 3)).toEqual(['M1', 'M2', 'M3']);
+    expect(codigos).toEqual(expect.arrayContaining(['L1', 'L2', 'AF1', 'AF2']));
+    // Primero las normales, luego las largas y al final las de afuera
+    expect(codigos.indexOf('M10')).toBeLessThan(codigos.indexOf('L1'));
+    expect(codigos.indexOf('L2')).toBeLessThan(codigos.indexOf('AF1'));
+  });
+
+  it('solo el administrador registra mesas; sin número toma el siguiente del tipo', async () => {
+    expect((await crear({ tipo: 'LARGA' }, 'mesero')).status).toBe(403);
+    const nueva = await crear({ tipo: 'LARGA', capacidad: 10 });
+    expect(nueva.status).toBe(201);
+    expect(nueva.body).toMatchObject({ tipo: 'LARGA', numero: 3, codigo: 'L3', capacidad: 10, activa: true });
+
+    const repetida = await crear({ tipo: 'LARGA', numero: 3 });
+    expect(repetida.status).toBe(409);
+    expect(repetida.body.mensaje).toMatch(/Ya existe la mesa L3/);
+    expect((await crear({ tipo: 'TERRAZA' })).status).toBe(400);
+    // El número se repite entre tipos: puede haber M3 y AF3
+    expect((await crear({ tipo: 'AFUERA', numero: 3 })).body.codigo).toBe('AF3');
+  });
+
+  it('suspende, reactiva y borra mesas; la suspendida no aparece al tomar pedidos', async () => {
+    const { body: mesa } = await crear({ tipo: 'AFUERA' });
+    const cambiar = (datos: object, rol = 'admin') => api().patch(`/api/mesas/${mesa.id}`).set(como(rol)).send(datos);
+
+    expect((await cambiar({ activa: false }, 'mesero')).status).toBe(403);
+    expect((await cambiar({ activa: false })).body.activa).toBe(false);
+    const visibles = async (rol: string, ruta = '/api/mesas') => (await api().get(ruta).set(como(rol))).body.map((m: { id: string }) => m.id);
+    expect(await visibles('mesero')).not.toContain(mesa.id);
+    expect(await visibles('admin', '/api/mesas?todas=true')).toContain(mesa.id);
+    expect((await api().get('/api/mesas?todas=true').set(como('mesero'))).status).toBe(403);
+
+    expect((await cambiar({ activa: true, capacidad: 6 })).body).toMatchObject({ activa: true, capacidad: 6 });
+    expect((await api().delete(`/api/mesas/${mesa.id}`).set(como('admin'))).status).toBe(204);
+  });
+
+  it('no deja suspender ni borrar una mesa con pedidos', async () => {
+    const { body: mesa } = await crear({ tipo: 'NORMAL' });
+    const gaseosa = await producto('Gaseosa');
+    const { body: pedido } = await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId: mesa.id, items: [{ productoId: gaseosa.id, cantidad: 1 }] });
+    expect(pedido.mesa).toEqual({ tipo: 'NORMAL', numero: mesa.numero });
+
+    const suspender = await api().patch(`/api/mesas/${mesa.id}`).set(como('admin')).send({ activa: false });
+    expect(suspender.status).toBe(409);
+    expect(suspender.body.mensaje).toMatch(/tiene un pedido activo/);
+
+    await api().patch(`/api/pedidos/${pedido.id}/estado`).set(como('mesero')).send({ estado: 'PAGADO' });
+    const borrar = await api().delete(`/api/mesas/${mesa.id}`).set(como('admin'));
+    expect(borrar.status).toBe(409);
+    expect(borrar.body.mensaje).toMatch(/Suspéndela/);
+    expect((await api().patch(`/api/mesas/${mesa.id}`).set(como('admin')).send({ activa: false })).status).toBe(200);
+  });
+});
+
 describe('pedidos', () => {
   let mesaId: string;
 
@@ -93,7 +153,7 @@ describe('pedidos', () => {
       .send({ tipo: 'MESA', mesaId, items: [{ productoId: hamburguesa.id, cantidad: 2, notas: 'sin cebolla' }, { productoId: limonada.id, cantidad: 1 }] });
 
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ tipo: 'MESA', canal: 'WEB', estado: 'ACTIVO', subtotal: 42000, total: 42000, mesa: { numero: 1 } });
+    expect(res.body).toMatchObject({ tipo: 'MESA', canal: 'WEB', estado: 'ACTIVO', subtotal: 42000, total: 42000, mesa: { tipo: 'NORMAL', numero: 1 } });
     expect(res.body.detalles).toHaveLength(2);
     expect(res.body.creadoPor).toEqual({ id: expect.any(String), nombre: 'Mesero' });
 

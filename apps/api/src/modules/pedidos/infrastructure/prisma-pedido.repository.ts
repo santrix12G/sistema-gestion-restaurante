@@ -16,7 +16,7 @@ const VISTA = {
   notas: true,
   creadoEn: true,
   actualizadoEn: true,
-  mesa: { select: { numero: true } },
+  mesa: { select: { tipo: true, numero: true } },
   creadoPor: { select: { id: true, nombre: true } },
   cliente: { select: { nombre: true, telefono: true } },
   entrega: {

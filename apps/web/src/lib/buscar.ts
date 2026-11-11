@@ -1,23 +1,22 @@
-import { destino } from './formato';
+import { codigoMesa, destino } from './formato';
 import { Pedido } from './tipos';
 
 const normalizar = (texto: string) =>
   texto
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
-
-/** Identificador corto de la mesa, como lo escribe el personal: M3 */
-export const codigoMesa = (mesa: { numero: number }) => `M${mesa.numero}`;
 
 /**
  * ¿El pedido coincide con lo que se escribió en el buscador? Busca por número de pedido (12 o #12),
- * por mesa (M3 o mesa 3) y por palabras: cliente, teléfono, productos, notas, dirección y personal.
+ * por mesa (L1, AF2, M3 o mesa 3) y por palabras: cliente, teléfono, productos, notas, dirección y personal.
  * Todas las palabras deben aparecer.
  */
 export function coincide(pedido: Pedido, consulta: string) {
   const palabras = normalizar(consulta)
+    // "mesa 3" es la M3; "mesa L1" es la L1
     .replace(/\bmesa\s*(\d+)/g, 'm$1')
+    .replace(/\bmesa\s+(?=[a-z]+\d)/g, '')
     .split(/[\s#,]+/)
     .filter(Boolean);
   if (palabras.length === 0) return true;

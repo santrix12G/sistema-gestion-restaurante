@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Aviso, Boton, Campo, Cargando, Titulo } from '@/components/ui';
 import { llamar, mensajeDeError } from '@/lib/api';
-import { pesos } from '@/lib/formato';
+import { NOMBRE_TIPO_MESA, pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
-import { Mesa, Producto } from '@/lib/tipos';
+import { Mesa, Producto, TipoMesa } from '@/lib/tipos';
+
+const TIPOS_MESA: TipoMesa[] = ['NORMAL', 'LARGA', 'AFUERA'];
 
 interface Linea {
   cantidad: number;
@@ -95,19 +97,30 @@ export default function NuevoPedido() {
               ))}
             </div>
             {tipo === 'MESA' ? (
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-10">
-                {mesas.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setMesaId(m.id)}
-                    aria-label={`Mesa ${m.numero}, ${m.pedidosActivos ? `${m.pedidosActivos} pedido(s) activo(s)` : 'libre'}`}
-                    title={m.pedidosActivos ? `${m.pedidosActivos} pedido(s) activo(s)` : 'Libre'}
-                    className={`relative rounded-lg py-3 text-sm font-bold ring-1 ${mesaId === m.id ? 'bg-marca-600 text-white ring-marca-600' : 'bg-white ring-stone-300 hover:bg-stone-50'}`}
-                  >
-                    {m.numero}
-                    {m.pedidosActivos > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500" />}
-                  </button>
-                ))}
+              <div className="space-y-3">
+                {TIPOS_MESA.map((t) => {
+                  const delTipo = mesas.filter((m) => m.tipo === t);
+                  if (delTipo.length === 0) return null;
+                  return (
+                    <div key={t}>
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-500">{NOMBRE_TIPO_MESA[t]}</p>
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-10">
+                        {delTipo.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => setMesaId(m.id)}
+                            aria-label={`Mesa ${m.codigo}, ${m.pedidosActivos ? `${m.pedidosActivos} pedido(s) activo(s)` : 'libre'}`}
+                            title={`${m.capacidad} puestos · ${m.pedidosActivos ? `${m.pedidosActivos} pedido(s) activo(s)` : 'libre'}`}
+                            className={`relative rounded-lg py-3 text-sm font-bold ring-1 ${mesaId === m.id ? 'bg-marca-600 text-white ring-marca-600' : 'bg-white ring-stone-300 hover:bg-stone-50'}`}
+                          >
+                            {m.codigo}
+                            {m.pedidosActivos > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">

@@ -1,4 +1,4 @@
-import { EstadoPedido, Pedido } from './tipos';
+import { EstadoPedido, Pedido, TipoMesa } from './tipos';
 
 const formatoPesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
@@ -17,8 +17,14 @@ export function hora(fecha: string) {
   return new Date(fecha).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
 }
 
+export const NOMBRE_TIPO_MESA: Record<TipoMesa, string> = { NORMAL: 'Normales', LARGA: 'Largas', AFUERA: 'Afuera' };
+const PREFIJO_MESA: Record<TipoMesa, string> = { NORMAL: 'M', LARGA: 'L', AFUERA: 'AF' };
+
+/** Identificador corto de la mesa, como lo dice el personal: M3, L1, AF2 */
+export const codigoMesa = (mesa: { tipo: TipoMesa; numero: number }) => `${PREFIJO_MESA[mesa.tipo]}${mesa.numero}`;
+
 export function destino(pedido: Pedido) {
-  if (pedido.mesa) return `Mesa ${pedido.mesa.numero}`;
+  if (pedido.mesa) return `Mesa ${codigoMesa(pedido.mesa)}`;
   const quien = pedido.cliente?.nombre ?? pedido.cliente?.telefono ?? 'Cliente';
   return pedido.tipo === 'DOMICILIO' ? `Domicilio · ${quien}` : `Recoger · ${quien}`;
 }

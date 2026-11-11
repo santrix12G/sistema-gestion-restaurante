@@ -3,6 +3,8 @@ export type Rol = 'ADMIN' | 'MESERO' | 'REPARTIDOR';
 /** Un pedido está activo hasta que se cobra o se cancela. Si un domicilio va en camino lo dice su entrega */
 export type EstadoPedido = 'ACTIVO' | 'PAGADO' | 'CANCELADO';
 export type TipoPedido = 'MESA' | 'DOMICILIO' | 'RECOGER';
+/** Normal (M1), larga (L1) o afuera (AF1) */
+export type TipoMesa = 'NORMAL' | 'LARGA' | 'AFUERA';
 
 export interface UsuarioSesion {
   id: string;
@@ -31,9 +33,16 @@ export interface Producto {
 
 export interface Mesa {
   id: string;
+  tipo: TipoMesa;
   numero: number;
+  /** M3, L1, AF2 */
+  codigo: string;
   capacidad: number;
+  /** Una mesa suspendida no aparece al tomar pedidos */
+  activa: boolean;
   pedidosActivos: number;
+  /** Si ya tuvo pedidos no se puede borrar, solo suspender */
+  tienePedidos: boolean;
 }
 
 export interface Pedido {
@@ -42,7 +51,7 @@ export interface Pedido {
   tipo: TipoPedido;
   canal: 'WEB' | 'MOVIL' | 'WHATSAPP' | 'TELEGRAM';
   estado: EstadoPedido;
-  mesa: { numero: number } | null;
+  mesa: { tipo: TipoMesa; numero: number } | null;
   /** Mesero que lo registró. Vacío si llegó por el chatbot */
   creadoPor: { id: string; nombre: string } | null;
   cliente: { nombre: string | null; telefono: string } | null;

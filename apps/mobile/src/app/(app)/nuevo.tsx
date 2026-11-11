@@ -5,8 +5,10 @@ import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, Tex
 import { Aviso, Boton, Campo, Cargando, COLOR, estilos, Seccion, Vacio } from '@/components/ui';
 import { llamar, mensajeDeError, nuevaClave } from '@/lib/api';
 import { avisar } from '@/lib/confirmar';
-import { pesos } from '@/lib/formato';
-import { Categoria, Mesa, Pedido, Producto } from '@/lib/tipos';
+import { NOMBRE_TIPO_MESA, pesos } from '@/lib/formato';
+import { Categoria, Mesa, Pedido, Producto, TipoMesa } from '@/lib/tipos';
+
+const TIPOS_MESA: TipoMesa[] = ['NORMAL', 'LARGA', 'AFUERA'];
 
 type Paso = 'destino' | 'productos' | 'resumen';
 type Linea = { cantidad: number; notas: string };
@@ -137,22 +139,32 @@ export default function NuevoPedido() {
               <>
                 <Seccion titulo="Elige la mesa" />
                 {menu.mesas.length === 0 ? <Vacio>No hay mesas activas. El administrador debe crearlas.</Vacio> : null}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                  {menu.mesas.map((m) => (
-                    <Pressable
-                      key={m.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: mesaId === m.id }}
-                      onPress={() => setMesaId(m.id)}
-                      style={[estiloMesa.mesa, mesaId === m.id && estiloMesa.elegida]}
-                    >
-                      <Text style={[estiloMesa.numero, mesaId === m.id && { color: '#fff' }]}>{m.numero}</Text>
-                      <Text style={{ fontSize: 11, color: mesaId === m.id ? '#fff' : COLOR.suave }}>
-                        {m.pedidosActivos > 0 ? `${m.pedidosActivos} activo${m.pedidosActivos > 1 ? 's' : ''}` : 'Libre'}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                {TIPOS_MESA.map((t) => {
+                  const delTipo = menu.mesas.filter((m) => m.tipo === t);
+                  if (delTipo.length === 0) return null;
+                  return (
+                    <View key={t} style={{ gap: 6 }}>
+                      <Text style={{ color: COLOR.suave, fontSize: 13, fontWeight: '700' }}>{NOMBRE_TIPO_MESA[t]}</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                        {delTipo.map((m) => (
+                          <Pressable
+                            key={m.id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Mesa ${m.codigo}`}
+                            accessibilityState={{ selected: mesaId === m.id }}
+                            onPress={() => setMesaId(m.id)}
+                            style={[estiloMesa.mesa, mesaId === m.id && estiloMesa.elegida]}
+                          >
+                            <Text style={[estiloMesa.numero, mesaId === m.id && { color: '#fff' }]}>{m.codigo}</Text>
+                            <Text style={{ fontSize: 11, color: mesaId === m.id ? '#fff' : COLOR.suave }}>
+                              {m.pedidosActivos > 0 ? `${m.pedidosActivos} activo${m.pedidosActivos > 1 ? 's' : ''}` : 'Libre'}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
               </>
             ) : (
               <>
@@ -188,7 +200,7 @@ export default function NuevoPedido() {
           <>
             <View style={estilos.tarjeta}>
               <Text style={{ fontSize: 18, fontWeight: '800', color: COLOR.texto }}>
-                {tipo === 'MESA' ? `Mesa ${mesa?.numero ?? ''}` : `Recoger · ${nombre.trim() || telefono}`}
+                {tipo === 'MESA' ? `Mesa ${mesa?.codigo ?? ''}` : `Recoger · ${nombre.trim() || telefono}`}
               </Text>
               {elegidos.map(([id, l]) => {
                 const p = productos.get(id);
@@ -365,7 +377,8 @@ const estiloMesa = {
     gap: 2,
   },
   elegida: { backgroundColor: COLOR.marca, borderColor: COLOR.marca },
-  numero: { fontSize: 24, fontWeight: '800' as const, color: COLOR.texto },
+  // Cabe AF12 en la casilla
+  numero: { fontSize: 21, fontWeight: '800' as const, color: COLOR.texto },
 };
 
 const estiloBarra = {

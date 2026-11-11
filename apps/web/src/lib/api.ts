@@ -30,7 +30,7 @@ export function guardarSesion(sesion: unknown | null) {
 }
 
 interface Opciones {
-  metodo?: 'GET' | 'POST' | 'PATCH';
+  metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   cuerpo?: unknown;
   encabezados?: Record<string, string>;
 }
