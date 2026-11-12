@@ -293,19 +293,9 @@ describe('salud', () => {
   });
 });
 
-describe('simulador', () => {
-  it('solo lo usa el administrador', async () => {
-    const res = await api().post('/api/chatbot/simulador').set(como('mesero')).send({ telefono: '3009998877', texto: 'hola' });
-    expect(res.status).toBe(403);
-  });
-
-  it('conversa con el bot y guarda el historial', async () => {
-    const res = await api().post('/api/chatbot/simulador').set(como('admin')).send({ telefono: '300 999 8877', texto: 'una limonada para recoger' });
-    expect(res.status).toBe(200);
-    expect(res.body.respuestas.join('\n')).toMatch(/Limonada natural/);
-
-    const { body } = await api().get('/api/chatbot/simulador/3009998877').set(como('admin'));
-    expect(body.mensajes.map((m: { direccion: string }) => m.direccion)).toEqual(['ENTRANTE', 'SALIENTE']);
+describe('simulador retirado', () => {
+  it('ya no existe la ruta del simulador', async () => {
+    expect((await api().post('/api/chatbot/simulador').set(como('admin')).send({ telefono: '3009998877', texto: 'hola' })).status).toBe(404);
   });
 });
 
@@ -321,15 +311,19 @@ describe('tiempo real', () => {
   it('avisa al personal cuando entra un pedido', async () => {
     const socket = conectar(tokens.mesero);
     await new Promise<void>((resolve) => socket.on('connect', () => resolve()));
-    const aviso = new Promise<{ motivo: string; canal: string }>((resolve) => socket.on('pedido', resolve));
+    const avisoPedido = new Promise<{ motivo: string; canal: string }>((resolve) => socket.on('pedido', resolve));
     // La sala se asigna después de validar el token
     await new Promise((r) => setTimeout(r, 200));
 
-    await api().post('/api/chatbot/simulador').set(como('admin')).send({ telefono: '3007776655', texto: 'una gaseosa para recoger' });
-    await api().post('/api/chatbot/simulador').set(como('admin')).send({ telefono: '3007776655', texto: 'listo' });
-    await api().post('/api/chatbot/simulador').set(como('admin')).send({ telefono: '3007776655', texto: 'si' });
+    // Un cliente pide por WhatsApp (Meta); cada mensaje espera la respuesta del bot antes del siguiente
+    const cliente = '573007776655';
+    for (const [i, texto] of ['una gaseosa para recoger', 'listo', 'si'].entries()) {
+      const antes = (await salientes(`+${cliente}`)).length;
+      expect((await enviarAviso(aviso(texto, `wamid.tiempo-real-${i}`, cliente))).status).toBe(200);
+      await esperar(async () => (await salientes(`+${cliente}`)).length > antes);
+    }
 
-    expect(await aviso).toMatchObject({ motivo: 'creado', canal: 'WHATSAPP' });
+    expect(await avisoPedido).toMatchObject({ motivo: 'creado', canal: 'WHATSAPP' });
     socket.close();
   });
 });

@@ -71,7 +71,7 @@ Con `TELEGRAM_WEBHOOK_SECRET`, la API le dice a Telegram al arrancar que le entr
 
 ## WhatsApp en producción
 
-Con la API en Render ya no necesitas ngrok. Usa la dirección de Render en Twilio o Meta, por ejemplo `https://restaurante-api.onrender.com/api/webhooks/twilio`, y agrega las variables de [whatsapp.md](whatsapp.md) en **Environment**. El simulador de la web solo funciona con `WHATSAPP_PROVIDER=simulado`.
+Con la API en Render ya no necesitas ngrok. Usa la dirección de Render en Twilio o Meta, por ejemplo `https://restaurante-api.onrender.com/api/webhooks/twilio`, y agrega las variables de [whatsapp.md](whatsapp.md) en **Environment**.
 
 ## Si algo falla
 

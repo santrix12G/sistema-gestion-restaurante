@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { leerConfig } from '../../../shared/config';
 import { EmisorWhatsApp } from '../application/puertos';
 
-/** No envía nada: las respuestas se ven en el simulador de la aplicación web. */
+/** WhatsApp sin conectar: no envía nada. El bot sigue atendiendo por Telegram si tiene token. */
 @Injectable()
 export class EmisorSimulado implements EmisorWhatsApp {
   async enviarTexto() {}

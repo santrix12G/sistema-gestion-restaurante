@@ -16,7 +16,7 @@ export interface MensajeEntrante {
   telefono: string;
   /** Vacío si el mensaje no es de texto: audio, imagen, ubicación… */
   texto?: string;
-  /** Identificador del mensaje en el canal: descarta los repetidos. El simulador no lo tiene */
+  /** Identificador del mensaje en el canal: descarta los repetidos. */
   idExterno?: string;
   nombre?: string;
 }

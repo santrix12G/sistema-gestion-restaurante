@@ -9,7 +9,6 @@ import { EMISOR_TELEGRAM, EMISOR_WHATSAPP, MOTOR_NLP } from './application/puert
 import { RecibirTelegramUseCase } from './application/recibir-telegram.use-case';
 import { EmisorMeta, EmisorSimulado, EmisorTwilio } from './infrastructure/emisores';
 import { MotorOpenAI, MotorReglas } from './infrastructure/motores-nlp';
-import { SimuladorController } from './infrastructure/simulador.controller';
 import { CanalTelegram, EmisorTelegramBot, EmisorTelegramSimulado } from './infrastructure/telegram';
 import { WebhookTelegramController } from './infrastructure/webhook-telegram.controller';
 import { WebhookTwilioController } from './infrastructure/webhook-twilio.controller';
@@ -29,7 +28,7 @@ function crearEmisor() {
 // WHATSAPP_PROVIDER, TELEGRAM_BOT_TOKEN y NLP_PROVIDER del .env eligen los adaptadores; el resto del bot no cambia
 @Module({
   imports: [CatalogoModule, ClientesModule, PedidosModule],
-  controllers: [WebhookWhatsAppController, WebhookTwilioController, WebhookTelegramController, SimuladorController],
+  controllers: [WebhookWhatsAppController, WebhookTwilioController, WebhookTelegramController],
   providers: [
     ProcesarMensajeUseCase,
     NotificarCliente,

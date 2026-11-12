@@ -361,12 +361,19 @@ describe('estadísticas', () => {
     const unidades = (r: { masVendidos: { productoId: string; cantidad: number }[] }) => r.masVendidos.find((p) => p.productoId === gaseosa.id)?.cantidad ?? 0;
     expect(unidades(despues) - unidades(antes)).toBe(3);
     expect(despues.porTipo.find((t: { tipo: string }) => t.tipo === 'MESA').total - antes.porTipo.find((t: { tipo: string }) => t.tipo === 'MESA').total).toBe(pagado.total);
+    // El pedido del mesero entró por la web; las horas suman lo mismo que lo vendido
+    const delCanal = (r: { porCanal: { canal: string; total: number }[] }, canal: string) => r.porCanal.find((c) => c.canal === canal)!.total;
+    expect(delCanal(despues, 'WEB') - delCanal(antes, 'WEB')).toBe(pagado.total);
+    expect(despues.porCanal.map((c: { canal: string }) => c.canal)).toEqual(['WHATSAPP', 'TELEGRAM', 'WEB', 'MOVIL']);
+    expect(despues.porHora).toHaveLength(24);
+    expect(despues.porHora.reduce((s: number, h: { total: number }) => s + h.total, 0)).toBe(despues.ventas.total);
+    expect(despues.porHora[despues.horaPico].pedidos).toBeGreaterThan(0);
   });
 
   it('consulta días pasados y valida la fecha', async () => {
     const pasado = await delDia('?fecha=2020-01-15');
     expect(pasado.status).toBe(200);
-    expect(pasado.body).toMatchObject({ fecha: '2020-01-15', ventas: { total: 0, pedidos: 0 }, masVendidos: [], activos: null });
+    expect(pasado.body).toMatchObject({ fecha: '2020-01-15', ventas: { total: 0, pedidos: 0 }, masVendidos: [], activos: null, horaPico: null });
     expect((await delDia('?fecha=2999-01-01')).status).toBe(400);
     expect((await delDia('?fecha=15-01-2020')).status).toBe(400);
   });
