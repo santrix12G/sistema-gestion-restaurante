@@ -325,3 +325,49 @@ describe('pedidos', () => {
     expect(respuestas.map((r) => r.status).sort()).toEqual([200, 409, 409]);
   });
 });
+
+describe('estadísticas', () => {
+  const delDia = (consulta = '') => api().get(`/api/estadisticas/dia${consulta}`).set(como('admin'));
+
+  it('solo el administrador ve las estadísticas', async () => {
+    expect((await api().get('/api/estadisticas/dia').set(como('mesero'))).status).toBe(403);
+    expect((await api().get('/api/estadisticas/dia').set(como('repartidor'))).status).toBe(403);
+  });
+
+  it('suma lo pagado hoy, cuenta lo cancelado aparte y lleva los más vendidos', async () => {
+    const { body: mesas } = await api().get('/api/mesas').set(como('mesero'));
+    const gaseosa = await producto('Gaseosa');
+    const antes = (await delDia()).body;
+    const crear = async (cantidad: number) =>
+      (await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId: mesas[0].id, items: [{ productoId: gaseosa.id, cantidad }] })).body;
+    const cerrar = (id: string, estado: string) => api().patch(`/api/pedidos/${id}/estado`).set(como('mesero')).send({ estado });
+
+    const pagado = await crear(3);
+    await cerrar(pagado.id, 'PAGADO');
+    const cancelado = await crear(10);
+    await cerrar(cancelado.id, 'CANCELADO');
+    const abierto = await crear(1);
+
+    const res = await delDia();
+    expect(res.status).toBe(200);
+    const despues = res.body;
+    expect(despues.ventas.total - antes.ventas.total).toBe(pagado.total);
+    expect(despues.ventas.pedidos - antes.ventas.pedidos).toBe(1);
+    expect(despues.cancelados.pedidos - antes.cancelados.pedidos).toBe(1);
+    expect(despues.cancelados.total - antes.cancelados.total).toBe(cancelado.total);
+    expect(despues.activos.pedidos - antes.activos.pedidos).toBe(1);
+    expect(despues.activos.total - antes.activos.total).toBe(abierto.total);
+    // Lo cancelado no suma a lo más vendido
+    const unidades = (r: { masVendidos: { productoId: string; cantidad: number }[] }) => r.masVendidos.find((p) => p.productoId === gaseosa.id)?.cantidad ?? 0;
+    expect(unidades(despues) - unidades(antes)).toBe(3);
+    expect(despues.porTipo.find((t: { tipo: string }) => t.tipo === 'MESA').total - antes.porTipo.find((t: { tipo: string }) => t.tipo === 'MESA').total).toBe(pagado.total);
+  });
+
+  it('consulta días pasados y valida la fecha', async () => {
+    const pasado = await delDia('?fecha=2020-01-15');
+    expect(pasado.status).toBe(200);
+    expect(pasado.body).toMatchObject({ fecha: '2020-01-15', ventas: { total: 0, pedidos: 0 }, masVendidos: [], activos: null });
+    expect((await delDia('?fecha=2999-01-01')).status).toBe(400);
+    expect((await delDia('?fecha=15-01-2020')).status).toBe(400);
+  });
+});
