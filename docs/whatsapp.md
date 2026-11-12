@@ -43,7 +43,7 @@ Los precios y los productos siempre salen de la base de datos. El NLP solo propo
 
 | Variable | Valores | Para qué |
 |---|---|---|
-| `WHATSAPP_PROVIDER` | `simulado` (por defecto), `twilio` o `meta` | Con `simulado` el bot se prueba desde la web, en **Simulador WhatsApp**. Con `twilio` o `meta` responde por WhatsApp real |
+| `WHATSAPP_PROVIDER` | `simulado` (por defecto), `twilio` o `meta` | Con `simulado` WhatsApp queda sin conectar y no se envía nada. Con `twilio` o `meta` responde por WhatsApp real |
 | `TELEGRAM_BOT_TOKEN` | El token de @BotFather, o vacío | Con token, el bot también atiende por Telegram. Funciona junto a cualquier valor de `WHATSAPP_PROVIDER` |
 | `NLP_PROVIDER` | `reglas` (por defecto) u `openai` | Con `openai` entiende mejor la escritura libre. Si OpenAI falla o tarda más de 10 segundos, responden las reglas |
 | `COSTO_DOMICILIO` | Pesos, por ejemplo `5000` | Se suma a los pedidos a domicilio |
@@ -52,9 +52,7 @@ Cambiar de proveedor no requiere tocar código: solo el `.env` y reiniciar la AP
 
 ## Probarlo sin WhatsApp
 
-1. Deja `WHATSAPP_PROVIDER="simulado"` en `apps/api/.env`.
-2. Entra a la web como administrador y abre **Simulador WhatsApp**.
-3. Escribe como cliente, o usa los mensajes de ejemplo. Los pedidos que confirmes son reales: aparecen en **Pedidos**, y al tomarlos o cerrarlos verás los avisos en el chat.
+La forma más fácil de probar el bot es Telegram: solo necesita el token de un bot (ver la sección siguiente). Los pedidos que confirmes son reales: aparecen en **Pedidos**, y al cobrarlos o cancelarlos el bot avisa en el chat.
 
 ## Conectarlo a Telegram (lo más fácil)
 
@@ -217,6 +215,5 @@ El modelo solo clasifica el mensaje y devuelve los nombres de productos. Los pre
 - Cada aviso se valida con la firma del proveedor: `X-Twilio-Signature` con el Auth Token de Twilio, o `X-Hub-Signature-256` con la clave secreta de la app de Meta. Sin esos secretos, el webhook correspondiente rechaza todo.
 - Meta y Twilio pueden enviar un aviso más de una vez. El bot guarda el identificador de cada mensaje y no procesa dos veces el mismo, ni crea pedidos repetidos.
 - Los mensajes de un mismo cliente se procesan en orden, uno a la vez. Esto funciona con un solo servidor; con varios haría falta una cola externa.
-- El simulador se desactiva con `WHATSAPP_PROVIDER` en `twilio` o `meta`, para no escribirle por WhatsApp a un número que alguien teclee.
 - **Ventana de 24 horas:** WhatsApp solo permite escribir texto libre hasta 24 horas después del último mensaje del cliente. Los avisos de estado llegan dentro de ese tiempo en un pedido normal. Para escribir fuera de la ventana harían falta plantillas aprobadas por Meta, que no están implementadas.
 - Por ahora el pago es en efectivo al recibir. El bot solo entiende mensajes de texto.

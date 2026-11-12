@@ -11,6 +11,9 @@ export function inicioDelDia(ahora = new Date()): Date {
   return new Date(local.getTime() - DESFASE_COLOMBIA_MS);
 }
 
+/** La hora (0 a 23) de un momento, en Colombia */
+export const horaEnColombia = (momento: Date) => new Date(momento.getTime() + DESFASE_COLOMBIA_MS).getUTCHours();
+
 /** La fecha de hoy en Colombia, como AAAA-MM-DD */
 export const hoyEnColombia = (ahora = new Date()) => new Date(ahora.getTime() + DESFASE_COLOMBIA_MS).toISOString().slice(0, 10);
 

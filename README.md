@@ -10,7 +10,7 @@ Autores: Jean Carlos Jimenez Ortega y Santiago Cuellar Gonzales.
 | Etapa | Estado |
 |---|---|
 | 1. Base de datos en Supabase | Lista. Ver [docs/base-de-datos.md](docs/base-de-datos.md) |
-| 2. Aplicación web (Next.js + React) | Pedidos en mesa, para recoger y a domicilio en tiempo real, menú y simulador del chatbot. Ver [docs/arquitectura.md](docs/arquitectura.md) |
+| 2. Aplicación web (Next.js + React) | Pedidos en mesa, para recoger y a domicilio en tiempo real y menú. Ver [docs/arquitectura.md](docs/arquitectura.md) |
 | 3. Chatbot de WhatsApp y Telegram | Funciona en Telegram con solo un token. Se conecta a WhatsApp por Twilio (o directo con Meta) y se prueba en la web sin ninguno de los dos. Ver [docs/whatsapp.md](docs/whatsapp.md) |
 | 4. Aplicación móvil (React Native) | App Android con Expo para meseros (tomar y cobrar pedidos) y repartidores (domicilios). Ver [docs/app-movil.md](docs/app-movil.md) |
 | 5. Despliegue | API en Render y web en Vercel, desde `main`. Ver [docs/despliegue.md](docs/despliegue.md) |
@@ -53,7 +53,7 @@ Abre http://localhost:3000. Los usuarios son `admin@restaurante.test`, `mesero@r
 
 | Rol | Pantallas |
 |---|---|
-| Administrador | Todo, incluido crear y editar productos, registrar mesas por tipo (normal M1, larga L1, afuera AF1), crear, editar, suspender y borrar las cuentas de meseros y repartidores, ver las estadísticas del día (lo vendido, los cancelados y lo más vendido) y probar el chatbot en el simulador |
+| Administrador | Todo, incluido crear y editar productos, registrar mesas por tipo (normal M1, larga L1, afuera AF1), crear, editar, suspender y borrar las cuentas de meseros y repartidores, ver las estadísticas del día (lo vendido, los cancelados, lo más vendido, las ventas por canal y las horas pico) |
 | Mesero | Registrar pedidos y marcarlos pagados o cancelarlos, con su historial del día. Solo ve los que él registró. También marca productos agotados. En la web o en la app |
 | Repartidor | Ve los domicilios disponibles y los que lleva; al tomar uno queda a su nombre y lo marca entregado y pagado o cancelado. Tiene el historial de los que llevó hoy. En la web o en la app |
 

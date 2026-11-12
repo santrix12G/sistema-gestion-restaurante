@@ -87,13 +87,6 @@ export interface Pedido {
   detalles: { id: string; nombreProducto: string; precioUnitario: number; cantidad: number; subtotal: number; notas: string | null }[];
 }
 
-export interface MensajeChat {
-  id: string;
-  direccion: 'ENTRANTE' | 'SALIENTE';
-  texto: string;
-  creadoEn: string;
-}
-
 /** Cifras de un día para el administrador. `activos` solo viene para hoy */
 export interface EstadisticasDia {
   fecha: string;
@@ -101,5 +94,9 @@ export interface EstadisticasDia {
   cancelados: { pedidos: number; total: number };
   activos: { pedidos: number; total: number } | null;
   porTipo: { tipo: TipoPedido; pedidos: number; total: number }[];
+  porCanal: { canal: Pedido['canal']; pedidos: number; total: number }[];
+  /** Las 24 horas del día en Colombia, por la hora en que llegó cada pedido pagado */
+  porHora: { hora: number; pedidos: number; total: number }[];
+  horaPico: number | null;
   masVendidos: { productoId: string; nombre: string; cantidad: number; total: number }[];
 }

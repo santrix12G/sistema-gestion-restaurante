@@ -1,4 +1,4 @@
-// Puertos del chatbot: el caso de uso no sabe si habla con Twilio, Meta, Telegram o el simulador,
+// Puertos del chatbot: el caso de uso no sabe si habla con Twilio, Meta, Telegram,
 // ni si entiende con reglas o con un LLM. Cada proveedor se elige en el .env.
 import { ProductoBot } from '../domain/buscador-productos';
 import { Paso } from '../domain/dialogo';

@@ -17,7 +17,7 @@ export class EstadisticasService {
     const [cerrados, activos] = await Promise.all([
       this.prisma.pedido.findMany({
         where: { estado: { in: ['PAGADO', 'CANCELADO'] }, actualizadoEn: { gte: desde, lt: hasta } },
-        select: { estado: true, tipo: true, total: true, detalles: { select: { productoId: true, nombreProducto: true, cantidad: true, subtotal: true } } },
+        select: { estado: true, tipo: true, canal: true, creadoEn: true, total: true, detalles: { select: { productoId: true, nombreProducto: true, cantidad: true, subtotal: true } } },
       }),
       esHoy ? this.prisma.pedido.aggregate({ where: { estado: 'ACTIVO' }, _count: true, _sum: { total: true } }) : null,
     ]);
