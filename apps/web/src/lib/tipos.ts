@@ -93,3 +93,13 @@ export interface MensajeChat {
   texto: string;
   creadoEn: string;
 }
+
+/** Cifras de un día para el administrador. `activos` solo viene para hoy */
+export interface EstadisticasDia {
+  fecha: string;
+  ventas: { total: number; pedidos: number; promedio: number; platos: number };
+  cancelados: { pedidos: number; total: number };
+  activos: { pedidos: number; total: number } | null;
+  porTipo: { tipo: TipoPedido; pedidos: number; total: number }[];
+  masVendidos: { productoId: string; nombre: string; cantidad: number; total: number }[];
+}
