@@ -11,12 +11,23 @@ export interface PedidoEvento {
   telefonoCliente: string | null;
 }
 
+/** Un pago en línea cambió de estado. Lleva el pedidoId: quien necesite más datos del pedido los consulta. */
+export interface PagoEvento {
+  pagoId: string;
+  pedidoId: string;
+  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'REEMBOLSADO';
+  estadoAnterior: string;
+  monto: number;
+}
+
 export interface EventosDominio {
   'pedido.creado': PedidoEvento;
   /** El pedido se pagó o se canceló */
   'pedido.estado_cambiado': PedidoEvento & { estadoAnterior: string };
   /** Un repartidor tomó el domicilio y va hacia la dirección del cliente */
   'pedido.en_camino': PedidoEvento & { repartidor: string };
+  /** La pasarela confirmó, rechazó o reembolsó un pago en línea */
+  'pago.estado_cambiado': PagoEvento;
 }
 
 type Manejador<T> = (evento: T) => void | Promise<void>;
