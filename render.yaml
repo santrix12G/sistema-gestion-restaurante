@@ -38,3 +38,8 @@ services:
         value: reglas
       - key: COSTO_DOMICILIO
         value: "5000"
+      # Pago en línea con MercadoPago. Webhook: https://TU-API/api/webhooks/mercadopago. Ver docs/pagos.md
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADOPAGO_WEBHOOK_SECRET
+        sync: false
