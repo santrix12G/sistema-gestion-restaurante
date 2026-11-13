@@ -40,6 +40,9 @@ export class WebhookMercadoPagoController {
     // MercadoPago firma el data.id que va en la URL
     const dataId = idEnUrl ?? (aviso?.data?.id !== undefined ? String(aviso.data.id) : undefined);
     if (!firmaMercadoPagoValida({ xSignature, xRequestId, dataId, secreto: this.secreto })) {
+      // Queda en el registro para poder diagnosticarlo: casi siempre es una clave secreta que no coincide con la del panel
+      const motivo = !this.secreto ? 'falta MERCADOPAGO_WEBHOOK_SECRET' : !xSignature ? 'el aviso no trae x-signature' : 'la firma no coincide con la clave secreta';
+      this.logger.warn(`Aviso de MercadoPago rechazado (data.id=${dataId ?? '?'}): ${motivo}`);
       throw new ForbiddenException('Firma inválida');
     }
 
