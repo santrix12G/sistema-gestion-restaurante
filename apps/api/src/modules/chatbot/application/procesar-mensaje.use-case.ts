@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CatalogoService } from '../../catalogo';
 import { ClientesService } from '../../clientes';
+import { CrearEnlacePagoUseCase } from '../../pagos';
 import { CrearPedidoClienteUseCase } from '../../pedidos';
 import { leerConfig } from '../../../shared/config';
 import { DomainError } from '../../../shared/domain-error';
@@ -42,6 +43,7 @@ export class ProcesarMensajeUseCase {
     private readonly clientes: ClientesService,
     private readonly catalogo: CatalogoService,
     private readonly crearPedido: CrearPedidoClienteUseCase,
+    private readonly enlacesPago: CrearEnlacePagoUseCase,
     @Inject(MOTOR_NLP) private readonly nlp: MotorNlp,
     @Inject(EMISOR_WHATSAPP) private readonly whatsapp: EmisorWhatsApp,
     @Inject(EMISOR_TELEGRAM) private readonly telegram: EmisorTelegram,
@@ -88,7 +90,7 @@ export class ProcesarMensajeUseCase {
     const interpretacion = await this.nlp.interpretar(texto, { paso: estado.paso, menu });
     await this.prisma.mensaje.update({ where: { id: entrante.id }, data: { intencion: interpretacion.intencion } });
 
-    let { paso, contexto, respuestas, crearPedido } = responder(estado, interpretacion, texto, menu, this.costoDomicilio);
+    let { paso, contexto, respuestas, crearPedido } = responder(estado, interpretacion, texto, menu, this.costoDomicilio, this.enlacesPago.disponible);
     if (crearPedido) {
       ({ paso, contexto, respuestas } = await this.confirmarPedido(canal, cliente.id, contexto, entrante.id));
     }
@@ -115,10 +117,11 @@ export class ProcesarMensajeUseCase {
       const siguiente = pedido.tipo === 'DOMICILIO'
         ? 'Ya lo estamos preparando. Te escribiré cuando salga hacia tu dirección.'
         : 'Ya lo estamos preparando. Pasa a recogerlo al restaurante.';
+      const pago = contexto.metodoPago === 'ONLINE' ? await this.textoEnlacePago(pedido) : '';
       return {
         paso: 'INICIO' as Paso,
         contexto: CONTEXTO_VACIO,
-        respuestas: [`✅ ¡Pedido *#${pedido.numero}* confirmado!\nTotal: *$${pedido.total.toLocaleString('es-CO')}*\n\n${siguiente} ¡Gracias por tu pedido! 🙌`],
+        respuestas: [`✅ ¡Pedido *#${pedido.numero}* confirmado!\nTotal: *$${pedido.total.toLocaleString('es-CO')}*\n\n${pago}${siguiente} ¡Gracias por tu pedido! 🙌`],
       };
     } catch (e) {
       if (e instanceof DomainError) {
@@ -127,6 +130,20 @@ export class ProcesarMensajeUseCase {
       }
       this.logger.error('No se pudo crear el pedido del chat', e instanceof Error ? e.stack : e);
       return { paso: 'CONFIRMACION' as Paso, contexto, respuestas: ['Tuvimos un problema al registrar tu pedido 😓. Responde *sí* en un momento para intentarlo de nuevo.'] };
+    }
+  }
+
+  /**
+   * El enlace para pagar en línea. Si la pasarela falla, el pedido no se pierde: ya está creado y se paga en efectivo.
+   */
+  private async textoEnlacePago(pedido: { id: string; numero: number; total: number }): Promise<string> {
+    if (!this.enlacesPago.disponible) return '💵 Pagas en efectivo al recibir.\n\n';
+    try {
+      const { url } = await this.enlacesPago.ejecutar({ pedidoId: pedido.id, numero: pedido.numero, total: pedido.total });
+      return `💳 Paga aquí con tarjeta o PSE:\n${url}\nEl enlace vence en 30 minutos. Te aviso en cuanto recibamos el pago.\n\n`;
+    } catch (e) {
+      this.logger.error(`No se pudo crear el enlace de pago del pedido ${pedido.numero}`, e instanceof Error ? e.message : e);
+      return '😓 No pude generar el enlace de pago en este momento. Puedes pagar en efectivo al recibir.\n\n';
     }
   }
 

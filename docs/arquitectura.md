@@ -18,6 +18,7 @@ apps/
 | `clientes` | Registro de clientes por teléfono y sus direcciones | Sin rutas propias: lo usan `pedidos` y `chatbot` |
 | `pedidos` | Creación de pedidos, cierre (pagado o cancelado), toma de domicilios y mesas | `/api/pedidos`, `/api/pedidos/:id/estado`, `/api/pedidos/:id/tomar`, `/api/mesas` (el administrador las crea, edita, suspende y borra), `/api/estadisticas/dia?fecha=AAAA-MM-DD` (lo vendido, los cancelados, lo más vendido, las ventas por canal y las horas pico del día, solo el administrador) |
 | `chatbot` | Conversación por WhatsApp y Telegram: entiende el mensaje, arma el pedido y avisa al cliente. Ver [whatsapp.md](whatsapp.md) | `/api/webhooks/twilio`, `/api/webhooks/whatsapp`. Telegram no usa rutas: la API le pregunta por mensajes nuevos |
+| `pagos` | Pago en línea con MercadoPago: crea el enlace de pago y confirma los pagos que avisa MercadoPago. Ver [pagos.md](pagos.md) | `/api/webhooks/mercadopago`. El enlace lo pide el `chatbot` |
 | `tiempo-real` | Avisa a la web del personal por Socket.IO | Socket en la raíz del servidor |
 
 ## Capas
@@ -27,10 +28,10 @@ Siguen la arquitectura de referencia, de afuera hacia adentro:
 | Capa | Carpeta | Contenido |
 |---|---|---|
 | Infraestructura y adaptadores | `infrastructure/` | Controladores REST y repositorios con Prisma |
-| Aplicación (casos de uso) | `application/` | `CrearPedido`, `CrearPedidoCliente`, `ActualizarEstadoPedido`, `ProcesarMensaje` |
-| Dominio | `domain/` | Reglas puras: cálculo de totales, quién puede cerrar o tomar cada pedido, NLP por reglas y pasos del diálogo |
+| Aplicación (casos de uso) | `application/` | `CrearPedido`, `CrearPedidoCliente`, `ActualizarEstadoPedido`, `ProcesarMensaje`, `CrearEnlacePago`, `ProcesarNotificacion` |
+| Dominio | `domain/` | Reglas puras: cálculo de totales, quién puede cerrar o tomar cada pedido, NLP por reglas, pasos del diálogo y cuándo un aviso de pago cambia el pago |
 
-El dominio no conoce la base de datos ni HTTP, por eso se prueba sin ellos. El módulo `pedidos` accede a los datos a través de un puerto (`PedidoRepository`), con una implementación en Prisma. El catálogo es CRUD sin reglas complejas y usa Prisma directamente. El chatbot recibe por puertos los emisores de WhatsApp y Telegram y el motor de NLP, y el `.env` elige la implementación.
+El dominio no conoce la base de datos ni HTTP, por eso se prueba sin ellos. El módulo `pedidos` accede a los datos a través de un puerto (`PedidoRepository`), con una implementación en Prisma. El módulo `pagos` tiene dos puertos: `PagoRepository` (Prisma) y `Pasarela` (MercadoPago, o una pasarela falsa en las pruebas); no depende de `pedidos`, porque quien pide el enlace le pasa el número y el total del pedido. El catálogo es CRUD sin reglas complejas y usa Prisma directamente. El chatbot recibe por puertos los emisores de WhatsApp y Telegram y el motor de NLP, y el `.env` elige la implementación.
 
 ## Eventos entre módulos
 
@@ -41,6 +42,7 @@ Los módulos se avisan por un bus de eventos en memoria (`shared/eventos.ts`), s
 | `pedido.creado` | `pedidos` | `tiempo-real` (la web se actualiza) |
 | `pedido.estado_cambiado` | `pedidos` | `tiempo-real` y `chatbot` (le escribe al cliente) |
 | `pedido.en_camino` | `pedidos`, cuando un repartidor toma un domicilio | `tiempo-real` y `chatbot` (avisa que va en camino) |
+| `pago.estado_cambiado` | `pagos`, cuando MercadoPago aprueba, rechaza o reembolsa un pago | `tiempo-real` (la tarjeta muestra si ya está pagado) y `chatbot` (le escribe al cliente) |
 
 El bus vive dentro del proceso. Si la API corre en varios servidores, habría que cambiarlo por uno externo, como Redis.
 
@@ -67,5 +69,5 @@ El administrador puede cerrar cualquiera. Un pedido pagado o cancelado ya no cam
 
 ## Pendiente para las siguientes etapas
 
-- **Pagos en línea:** por ahora el pago es contra entrega.
+- **Pagos en línea:** funcionan desde el chatbot ([pagos.md](pagos.md)). Faltan los reembolsos al cancelar y pedir un enlace nuevo cuando vence.
 - **Inventario y analítica:** las tablas ya existen. Faltan sus pantallas.

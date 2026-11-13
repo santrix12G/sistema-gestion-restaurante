@@ -17,6 +17,8 @@ export interface ContextoConversacion {
   carrito: ItemCarrito[];
   tipoEntrega?: 'DOMICILIO' | 'RECOGER';
   direccion?: string;
+  /** Sin elegir, se paga en efectivo al recibir */
+  metodoPago?: 'EFECTIVO' | 'ONLINE';
 }
 
 export interface EstadoConversacion {
@@ -49,7 +51,20 @@ function textoCarrito(carrito: ItemCarrito[]) {
   return carrito.map((i) => `• ${i.cantidad}× ${i.nombre}${i.notas ? ` (${i.notas})` : ''} — ${pesos(i.precio * i.cantidad)}`).join('\n');
 }
 
-export function textoResumen(contexto: ContextoConversacion, costoDomicilio: number) {
+/** Cómo se paga y qué se le pide responder. El pago en línea solo se ofrece si la pasarela está configurada. */
+function textoPago(contexto: ContextoConversacion, pagoEnLinea: boolean): string[] {
+  if (!pagoEnLinea) return ['💵 Pago en efectivo al recibir', '', '¿Lo confirmo? Responde *sí* o *no*'];
+  if (contexto.metodoPago === 'ONLINE') {
+    return ['💳 Pago en línea (tarjeta o PSE): te envío el enlace al confirmar', '', '¿Lo confirmo? Responde *sí* o *no*.\nSi prefieres pagar en efectivo al recibir, escribe *efectivo*.'];
+  }
+  return [
+    '💵 Pagas en efectivo al recibir, o 💳 en línea con tarjeta o PSE',
+    '',
+    '¿Lo confirmo? Responde *sí* para pagar en efectivo al recibir, *en línea* para pagar ahora, o *no* para cambiarlo.',
+  ];
+}
+
+export function textoResumen(contexto: ContextoConversacion, costoDomicilio: number, pagoEnLinea = false) {
   const subtotal = contexto.carrito.reduce((s, i) => s + i.precio * i.cantidad, 0);
   const domicilio = contexto.tipoEntrega === 'DOMICILIO' ? costoDomicilio : 0;
   const entrega = contexto.tipoEntrega === 'DOMICILIO' ? `🛵 A domicilio: ${contexto.direccion}` : '🏪 Para recoger en el restaurante';
@@ -60,9 +75,7 @@ export function textoResumen(contexto: ContextoConversacion, costoDomicilio: num
     `*Total: ${pesos(subtotal + domicilio)}*`,
     '',
     entrega,
-    '💵 Pago en efectivo al recibir',
-    '',
-    '¿Lo confirmo? Responde *sí* o *no*',
+    ...textoPago(contexto, pagoEnLinea),
   ].join('\n');
 }
 
@@ -122,6 +135,8 @@ export function responder(
   textoOriginal: string,
   menu: ProductoBot[],
   costoDomicilio: number,
+  /** True si la pasarela de pagos está configurada */
+  pagoEnLinea = false,
 ): Resultado {
   const { paso, contexto } = estado;
   const resultado = (siguiente: Paso, ctx: ContextoConversacion, respuestas: string[], crearPedido = false): Resultado => ({
@@ -130,6 +145,7 @@ export function responder(
     respuestas,
     crearPedido,
   });
+  const resumen = (ctx: ContextoConversacion) => textoResumen(ctx, costoDomicilio, pagoEnLinea);
   const i = interpretacion;
 
   // Válidas en cualquier paso
@@ -145,7 +161,27 @@ export function responder(
   // aunque diga "quiero que lo traigan a la calle 15"
   if (paso === 'DIRECCION' && i.items.length === 0 && i.intencion !== 'recoger') {
     if (!pareceDireccion(textoOriginal)) return resultado('DIRECCION', contexto, ['No reconocí una dirección. ' + PREGUNTA_DIRECCION]);
-    return confirmar({ ...contexto, tipoEntrega: 'DOMICILIO', direccion: textoOriginal.trim().slice(0, 200) }, costoDomicilio, resultado);
+    return confirmar({ ...contexto, tipoEntrega: 'DOMICILIO', direccion: textoOriginal.trim().slice(0, 200) }, resumen, resultado);
+  }
+
+  if (i.intencion === 'pago_en_linea' || i.intencion === 'pago_efectivo') {
+    if (i.intencion === 'pago_en_linea' && !pagoEnLinea) {
+      const sigue = paso === 'CONFIRMACION' ? ' Responde *sí* para confirmar tu pedido o *no* para cambiarlo.' : '';
+      return resultado(paso, contexto, [`Por ahora solo recibimos pago en efectivo al recibir 💵.${sigue}`]);
+    }
+    const ctx: ContextoConversacion = { ...contexto, metodoPago: i.intencion === 'pago_en_linea' ? 'ONLINE' : 'EFECTIVO' };
+    // En la confirmación, elegir cómo pagar también confirma: el resumen ya mostró el total
+    if (paso === 'CONFIRMACION') return resultado('CONFIRMACION', ctx, [], true);
+    const anotado = ctx.metodoPago === 'ONLINE' ? 'Anotado: te enviaré el enlace de pago al confirmar 💳.' : 'Anotado: pagas en efectivo al recibir 💵.';
+    const siguiente: Record<Paso, string> = {
+      INICIO: '¿Qué te gustaría pedir?',
+      ARMANDO_PEDIDO: ctx.carrito.length ? '¿Algo más? Escribe *listo* cuando termines.' : '¿Qué te gustaría pedir?',
+      TIPO_ENTREGA: PREGUNTA_ENTREGA,
+      DIRECCION: PREGUNTA_DIRECCION,
+      METODO_PAGO: '¿Algo más? Escribe *listo* cuando termines.',
+      CONFIRMACION: '',
+    };
+    return resultado(paso === 'INICIO' ? 'ARMANDO_PEDIDO' : paso, ctx, [`${anotado} ${siguiente[paso]}`]);
   }
 
   // Agregar o quitar productos se puede en cualquier paso: vuelve a armar el pedido
@@ -164,41 +200,43 @@ export function responder(
     case 'METODO_PAGO':
       if (i.intencion === 'terminar' || i.intencion === 'negar' || i.intencion === 'confirmar') {
         if (contexto.carrito.length === 0) return resultado('ARMANDO_PEDIDO', contexto, ['Aún no has pedido nada. ¿Qué te gustaría? Escribe *menú* para ver la carta.']);
-        return elegirEntrega(contexto, contexto.tipoEntrega, costoDomicilio, resultado);
+        return elegirEntrega(contexto, contexto.tipoEntrega, resumen, resultado);
       }
       if (i.intencion === 'domicilio' || i.intencion === 'recoger') {
         if (contexto.carrito.length === 0) return resultado('ARMANDO_PEDIDO', { ...contexto, tipoEntrega: i.tipoEntrega }, ['Perfecto. ¿Qué te gustaría pedir?']);
-        return elegirEntrega(contexto, i.tipoEntrega, costoDomicilio, resultado);
+        return elegirEntrega(contexto, i.tipoEntrega, resumen, resultado);
       }
       if (i.intencion === 'saludo') return resultado('ARMANDO_PEDIDO', contexto, contexto.carrito.length ? mostrarCarrito(contexto, []) : [BIENVENIDA]);
       return resultado('ARMANDO_PEDIDO', contexto, ['No te entendí 🤔. Dime qué productos quieres, escribe *menú* para ver la carta o *ayuda* para saber cómo pedir.']);
 
     case 'TIPO_ENTREGA':
-      if (i.tipoEntrega) return elegirEntrega(contexto, i.tipoEntrega, costoDomicilio, resultado);
+      if (i.tipoEntrega) return elegirEntrega(contexto, i.tipoEntrega, resumen, resultado);
       return resultado('TIPO_ENTREGA', contexto, [PREGUNTA_ENTREGA]);
 
     case 'DIRECCION':
-      return elegirEntrega(contexto, 'RECOGER', costoDomicilio, resultado);
+      return elegirEntrega(contexto, 'RECOGER', resumen, resultado);
 
     case 'CONFIRMACION':
       if (i.intencion === 'confirmar' || i.intencion === 'terminar') return resultado('CONFIRMACION', contexto, [], true);
       if (i.intencion === 'negar') return resultado('ARMANDO_PEDIDO', contexto, ['Sin problema. ¿Qué quieres cambiar? Puedes agregar productos, pedir que *quite* alguno o escribir *cancelar*.']);
-      if (i.intencion === 'domicilio' || i.intencion === 'recoger') return elegirEntrega(contexto, i.tipoEntrega, costoDomicilio, resultado);
+      if (i.intencion === 'domicilio' || i.intencion === 'recoger') return elegirEntrega(contexto, i.tipoEntrega, resumen, resultado);
       return resultado('CONFIRMACION', contexto, ['Responde *sí* para confirmar tu pedido o *no* para cambiarlo.']);
   }
 }
 
+type Resumen = (contexto: ContextoConversacion) => string;
+
 function elegirEntrega(
   contexto: ContextoConversacion,
   tipo: ContextoConversacion['tipoEntrega'],
-  costoDomicilio: number,
+  resumen: Resumen,
   resultado: (p: Paso, c: ContextoConversacion, r: string[]) => Resultado,
 ): Resultado {
-  if (tipo === 'RECOGER') return confirmar({ ...contexto, tipoEntrega: 'RECOGER', direccion: undefined }, costoDomicilio, resultado);
+  if (tipo === 'RECOGER') return confirmar({ ...contexto, tipoEntrega: 'RECOGER', direccion: undefined }, resumen, resultado);
   if (tipo === 'DOMICILIO') return resultado('DIRECCION', { ...contexto, tipoEntrega: 'DOMICILIO' }, [PREGUNTA_DIRECCION]);
   return resultado('TIPO_ENTREGA', contexto, [PREGUNTA_ENTREGA]);
 }
 
-function confirmar(contexto: ContextoConversacion, costoDomicilio: number, resultado: (p: Paso, c: ContextoConversacion, r: string[]) => Resultado): Resultado {
-  return resultado('CONFIRMACION', contexto, [textoResumen(contexto, costoDomicilio)]);
+function confirmar(contexto: ContextoConversacion, resumen: Resumen, resultado: (p: Paso, c: ContextoConversacion, r: string[]) => Resultado): Resultado {
+  return resultado('CONFIRMACION', contexto, [resumen(contexto)]);
 }

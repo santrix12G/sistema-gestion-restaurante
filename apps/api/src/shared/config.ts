@@ -33,6 +33,16 @@ export interface Config {
     openaiApiKey: string;
     openaiModelo: string;
   };
+  pagos: {
+    mercadopago: {
+      /** Sin token, el pago en línea queda apagado y el bot solo ofrece efectivo */
+      accessToken: string;
+      /** Clave secreta del webhook: valida que los avisos vienen de MercadoPago */
+      secretoWebhook: string;
+      /** Dirección a la que MercadoPago envía los avisos. Vacía si la API no tiene dirección pública */
+      urlNotificacion: string;
+    };
+  };
 }
 
 function exigir(env: NodeJS.ProcessEnv, variables: string[], motivo: string) {
@@ -67,6 +77,11 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
     if (!env.API_PUBLIC_URL && !env.RENDER_EXTERNAL_URL) throw new Error('TELEGRAM_WEBHOOK_SECRET requiere API_PUBLIC_URL');
   }
 
+  // Sin la clave del webhook, ningún pago se podría confirmar: mejor no arrancar
+  if (env.MERCADOPAGO_ACCESS_TOKEN) exigir(env, ['MERCADOPAGO_WEBHOOK_SECRET'], 'MERCADOPAGO_ACCESS_TOKEN');
+
+  const urlPublica = (env.API_PUBLIC_URL ?? env.RENDER_EXTERNAL_URL ?? '').replace(/\/+$/, '');
+
   const costoDomicilio = Number(env.COSTO_DOMICILIO ?? 5000);
   if (!Number.isInteger(costoDomicilio) || costoDomicilio < 0) throw new Error('COSTO_DOMICILIO debe ser un entero en pesos');
 
@@ -98,6 +113,14 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
       proveedor: proveedorNlp,
       openaiApiKey: env.OPENAI_API_KEY ?? '',
       openaiModelo: env.OPENAI_MODEL ?? '',
+    },
+    pagos: {
+      mercadopago: {
+        accessToken: env.MERCADOPAGO_ACCESS_TOKEN ?? '',
+        secretoWebhook: env.MERCADOPAGO_WEBHOOK_SECRET ?? '',
+        // source_news=webhooks: solo avisos firmados, no los del sistema antiguo (IPN), que no traen firma
+        urlNotificacion: urlPublica ? `${urlPublica}/api/webhooks/mercadopago?source_news=webhooks` : '',
+      },
     },
   };
 }

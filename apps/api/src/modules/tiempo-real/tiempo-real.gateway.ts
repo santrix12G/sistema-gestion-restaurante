@@ -33,6 +33,10 @@ export class TiempoRealGateway implements OnGatewayConnection, OnModuleInit {
     this.bus.suscribir('pedido.en_camino', (e) => {
       this.servidor.to(SALA_PERSONAL).emit('pedido', { ...e, motivo: 'en_camino' });
     });
+    // Con el pago en línea confirmado, la tarjeta del pedido muestra que no hay que cobrarlo
+    this.bus.suscribir('pago.estado_cambiado', (e) => {
+      this.servidor.to(SALA_PERSONAL).emit('pedido', { pedidoId: e.pedidoId, pago: e.estado, motivo: 'pago' });
+    });
   }
 
   async handleConnection(cliente: Socket) {

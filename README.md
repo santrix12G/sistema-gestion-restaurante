@@ -14,12 +14,13 @@ Autores: Jean Carlos Jimenez Ortega y Santiago Cuellar Gonzales.
 | 3. Chatbot de WhatsApp y Telegram | Funciona en Telegram con solo un token. Se conecta a WhatsApp por Twilio (o directo con Meta) y se prueba en la web sin ninguno de los dos. Ver [docs/whatsapp.md](docs/whatsapp.md) |
 | 4. Aplicación móvil (React Native) | App Android con Expo para meseros (tomar y cobrar pedidos) y repartidores (domicilios). Ver [docs/app-movil.md](docs/app-movil.md) |
 | 5. Despliegue | API en Render y web en Vercel, desde `main`. Ver [docs/despliegue.md](docs/despliegue.md) |
+| 6. Pago en línea (MercadoPago) | El cliente del chatbot paga con tarjeta o PSE desde un enlace, y el personal ve en la tarjeta del pedido si ya está pagado. Ver [docs/pagos.md](docs/pagos.md) |
 
 ## Ejecutarlo
 
 Requiere Node.js 20 o superior. Trabaja en una copia fuera de OneDrive, por ejemplo `C:\dev\restaurante`, porque OneDrive bloquea `node_modules`.
 
-**1. API** (en `apps/api`). Copia `.env.example` como `.env` y completa `DATABASE_URL`, `JWT_SECRET` y las contraseñas del seed. Las variables del chatbot pueden quedar como están: arranca en modo simulado. Luego:
+**1. API** (en `apps/api`). Copia `.env.example` como `.env` y completa `DATABASE_URL`, `JWT_SECRET` y las contraseñas del seed. Las variables del chatbot y de MercadoPago pueden quedar como están: el bot arranca en modo simulado y solo ofrece pago en efectivo. Luego:
 
 ```bash
 npm ci

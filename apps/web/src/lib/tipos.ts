@@ -85,7 +85,11 @@ export interface Pedido {
     repartidor: { id: string; nombre: string } | null;
   } | null;
   detalles: { id: string; nombreProducto: string; precioUnitario: number; cantidad: number; subtotal: number; notas: string | null }[];
+  /** El último pago en línea, si el cliente eligió pagar así. Vacío si paga en efectivo */
+  pagos?: { estado: EstadoPago }[];
 }
+
+export type EstadoPago = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'REEMBOLSADO';
 
 /** Cifras de un día para el administrador. `activos` solo viene para hoy */
 export interface EstadisticasDia {

@@ -1,8 +1,22 @@
 import { ReactNode } from 'react';
 import { destino, hace, pesos } from '@/lib/formato';
-import { Pedido } from '@/lib/tipos';
+import { EstadoPago, Pedido } from '@/lib/tipos';
 
 const CANAL: Record<Pedido['canal'], string> = { WEB: 'Local', MOVIL: 'App', WHATSAPP: 'WhatsApp', TELEGRAM: 'Telegram' };
+
+/** Lo que el personal necesita saber del pago en línea: si ya está pagado, no se cobra al entregar. */
+const PAGO: Record<EstadoPago, { texto: string; clase: string }> = {
+  APROBADO: { texto: '💳 Pagado en línea · no cobrar', clase: 'bg-emerald-50 text-emerald-800' },
+  PENDIENTE: { texto: '⏳ Pago en línea pendiente', clase: 'bg-amber-50 text-amber-800' },
+  RECHAZADO: { texto: '❌ Pago en línea rechazado · cobrar en efectivo', clase: 'bg-red-50 text-red-800' },
+  REEMBOLSADO: { texto: '↩️ Pago en línea reembolsado', clase: 'bg-stone-100 text-stone-700' },
+};
+
+function EtiquetaPago({ pedido }: { pedido: Pedido }) {
+  const estado = pedido.pagos?.[0]?.estado;
+  if (!estado) return null;
+  return <p className={`mb-3 rounded-lg px-3 py-1.5 text-xs font-semibold ${PAGO[estado].clase}`}>{PAGO[estado].texto}</p>;
+}
 
 export function TarjetaPedido({ pedido, acciones }: { pedido: Pedido; acciones?: ReactNode }) {
   return (
@@ -16,6 +30,7 @@ export function TarjetaPedido({ pedido, acciones }: { pedido: Pedido; acciones?:
         </div>
         <p className="text-sm font-semibold">{pesos(pedido.total)}</p>
       </header>
+      <EtiquetaPago pedido={pedido} />
       {pedido.entrega && (
         <div className="mb-3 space-y-1 text-sm text-stone-700">
           <p>📍 {pedido.entrega.direccionTexto}</p>

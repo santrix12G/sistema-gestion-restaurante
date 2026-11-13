@@ -29,6 +29,8 @@ export interface PedidoVista {
   creadoEn: Date;
   actualizadoEn: Date;
   detalles: { id: string; nombreProducto: string; precioUnitario: number; cantidad: number; subtotal: number; notas: string | null }[];
+  /** El último pago en línea, si el cliente eligió pagar así (lista de cero o un elemento) */
+  pagos: { estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'REEMBOLSADO' }[];
 }
 
 export interface NuevoPedido {
