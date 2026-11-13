@@ -192,3 +192,70 @@ describe('webhook de MercadoPago', () => {
     expect((await avisar('mp-500')).status).toBe(500);
   });
 });
+
+describe('pago en línea desde WhatsApp', () => {
+  const TELEFONO = '573009998877';
+  const SECRETO_META = 'secreto-de-la-app-de-pruebas';
+
+  /** Envía un mensaje del cliente como lo envía Meta, firmado. */
+  function escribirPorWhatsApp(texto: string, id: string) {
+    const cuerpo = JSON.stringify({
+      object: 'whatsapp_business_account',
+      entry: [{ changes: [{ field: 'messages', value: { contacts: [{ wa_id: TELEFONO, profile: { name: 'Sofía' } }], messages: [{ from: TELEFONO, id, type: 'text', text: { body: texto } }] } }] }],
+    });
+    const firma = `sha256=${createHmac('sha256', SECRETO_META).update(cuerpo).digest('hex')}`;
+    return api().post('/api/webhooks/whatsapp').set('Content-Type', 'application/json').set('X-Hub-Signature-256', firma).send(cuerpo);
+  }
+
+  const salientes = async () =>
+    (await prisma.mensaje.findMany({ where: { direccion: 'SALIENTE', conversacion: { cliente: { telefono: `+${TELEFONO}` } } }, orderBy: { creadoEn: 'asc' } })).map((m) => m.texto);
+
+  /** El webhook de WhatsApp responde de inmediato y procesa después: se espera la respuesta del bot. */
+  async function conversar(texto: string, id: string): Promise<string> {
+    const antes = (await salientes()).length;
+    expect((await escribirPorWhatsApp(texto, id)).status).toBe(200);
+    for (let i = 0; i < 100; i++) {
+      const lista = await salientes();
+      if (lista.length > antes) return lista.slice(antes).join('\n');
+      await pausa();
+    }
+    throw new Error(`El bot no respondió a "${texto}"`);
+  }
+
+  it('el cliente elige pagar en línea, recibe el enlace, paga y el bot se lo confirma', async () => {
+    await conversar('hola', 'wamid.pago.1');
+    await conversar('2 gaseosas', 'wamid.pago.2');
+    expect(await conversar('listo', 'wamid.pago.3')).toMatch(/domicilio/i);
+    expect(await conversar('para recoger', 'wamid.pago.4')).toMatch(/\*en línea\* para pagar ahora/);
+
+    const confirmacion = await conversar('en línea', 'wamid.pago.5');
+    expect(confirmacion).toMatch(/Pedido \*#\d+\* confirmado/);
+    const url = confirmacion.match(/https:\/\/pago\.test\/checkout\/(\S+)/);
+    expect(url).not.toBeNull();
+    const pagoId = url![1];
+
+    const pago = await prisma.pago.findUniqueOrThrow({ where: { id: pagoId }, include: { pedido: true } });
+    expect(pago).toMatchObject({ estado: 'PENDIENTE', monto: pago.pedido.total });
+
+    // El cliente paga en MercadoPago y llega el aviso
+    intento('mp-whatsapp-1', pagoId, 'approved', pago.monto);
+    const antes = (await salientes()).length;
+    expect((await avisar('mp-whatsapp-1')).status).toBe(200);
+    for (let i = 0; i < 100 && (await salientes()).length === antes; i++) await pausa();
+    expect((await salientes()).at(-1)).toMatch(/Recibimos tu pago/);
+
+    // El personal ve en el pedido que ya está pagado en línea
+    const login = await api().post('/api/auth/login').send({ email: 'admin@restaurante.test', password: 'Admin-pruebas-1' });
+    const { body: pedido } = await api().get(`/api/pedidos/${pago.pedidoId}`).set('Authorization', `Bearer ${login.body.token}`);
+    expect(pedido.pagos).toEqual([{ estado: 'APROBADO' }]);
+  });
+
+  it('si el cliente responde "sí", el pedido queda en efectivo, sin enlace', async () => {
+    await conversar('una gaseosa', 'wamid.pago.10');
+    await conversar('listo', 'wamid.pago.11');
+    await conversar('recoger', 'wamid.pago.12');
+    const confirmacion = await conversar('sí', 'wamid.pago.13');
+    expect(confirmacion).toMatch(/confirmado/);
+    expect(confirmacion).not.toMatch(/pago\.test/);
+  });
+});

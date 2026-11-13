@@ -90,6 +90,9 @@ export function interpretarConReglas(texto: string, buscador: BuscadorProductos)
   }
   if (items.length) return { ...base, intencion: 'agregar' };
   if (prueba(t, /\b(menu|carta|que (tienen|venden|hay|ofrecen)|precios?)\b/)) return { ...base, intencion: 'menu' };
+  // Antes de confirmar: "sí, en línea" elige el pago en línea
+  if (prueba(t, /\b(en linea|online|tarjeta|pse|pagar ahora|pago ahora|link de pago|enlace de pago)\b/)) return { ...base, intencion: 'pago_en_linea' };
+  if (prueba(t, /\b(efectivo|contra entrega|al recibir|cash)\b/)) return { ...base, intencion: 'pago_efectivo' };
   if (prueba(t, /^(si+|claro|dale|ok|okey|okay|confirmo|confirmar|correcto|de una|perfecto|esta bien|asi esta bien|listo si)\b/)) {
     return { ...base, intencion: 'confirmar' };
   }

@@ -12,6 +12,8 @@ export const INTENCIONES = [
   'cancelar',
   'domicilio',
   'recoger',
+  'pago_en_linea',
+  'pago_efectivo',
   'ayuda',
   'otro',
 ] as const;

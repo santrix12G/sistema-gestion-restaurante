@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CatalogoModule } from '../catalogo';
 import { ClientesModule } from '../clientes';
+import { PagosModule } from '../pagos';
 import { PedidosModule } from '../pedidos';
 import { leerConfig } from '../../shared/config';
 import { NotificarCliente } from './application/notificar-cliente';
@@ -27,7 +28,7 @@ function crearEmisor() {
 
 // WHATSAPP_PROVIDER, TELEGRAM_BOT_TOKEN y NLP_PROVIDER del .env eligen los adaptadores; el resto del bot no cambia
 @Module({
-  imports: [CatalogoModule, ClientesModule, PedidosModule],
+  imports: [CatalogoModule, ClientesModule, PedidosModule, PagosModule],
   controllers: [WebhookWhatsAppController, WebhookTwilioController, WebhookTelegramController],
   providers: [
     ProcesarMensajeUseCase,

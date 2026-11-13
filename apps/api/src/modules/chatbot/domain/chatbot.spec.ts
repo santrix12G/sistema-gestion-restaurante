@@ -54,6 +54,11 @@ describe('NLP por reglas', () => {
     ['quítale las papas', 'quitar'],
     ['quiero una pizza', 'agregar'],
     ['jajaja', 'otro'],
+    ['en línea', 'pago_en_linea'],
+    ['sí, con tarjeta', 'pago_en_linea'],
+    ['pago por PSE', 'pago_en_linea'],
+    ['en efectivo', 'pago_efectivo'],
+    ['pago contra entrega', 'pago_efectivo'],
   ])('"%s" es %s', (texto, intencion) => {
     expect(entender(texto).intencion).toBe(intencion);
   });
@@ -132,5 +137,56 @@ describe('diálogo', () => {
     const r = conversar(['60 limonadas']);
     expect(r.contexto.carrito).toHaveLength(0);
     expect(r.respuestas[0]).toMatch(/entre 1 y 50/);
+  });
+});
+
+describe('diálogo con pago en línea', () => {
+  /** Igual que conversar, pero con la pasarela de pagos configurada (o no). */
+  function conversar(mensajes: string[], pagoEnLinea = true) {
+    let estado: EstadoConversacion = { paso: 'INICIO', contexto: CONTEXTO_VACIO };
+    let ultimo;
+    for (const texto of mensajes) {
+      ultimo = responder(estado, entender(texto), texto, MENU, 5000, pagoEnLinea);
+      estado = ultimo;
+    }
+    return ultimo!;
+  }
+
+  it('el resumen ofrece pagar en efectivo o en línea', () => {
+    const r = conversar(['una limonada', 'listo', 'recoger']);
+    expect(r.respuestas[0]).toMatch(/\*en línea\* para pagar ahora/);
+  });
+
+  it('sin pasarela configurada, el resumen solo ofrece efectivo', () => {
+    const r = conversar(['una limonada', 'listo', 'recoger'], false);
+    expect(r.respuestas[0]).toContain('💵 Pago en efectivo al recibir');
+    expect(r.respuestas[0]).not.toMatch(/en línea/);
+  });
+
+  it('responder "en línea" en la confirmación confirma el pedido con pago en línea', () => {
+    const r = conversar(['una limonada', 'listo', 'recoger', 'en línea']);
+    expect(r).toMatchObject({ crearPedido: true, contexto: { metodoPago: 'ONLINE' } });
+  });
+
+  it('responder "sí" en la confirmación es pagar en efectivo', () => {
+    const r = conversar(['una limonada', 'listo', 'recoger', 'sí']);
+    expect(r.crearPedido).toBe(true);
+    expect(r.contexto.metodoPago).toBeUndefined();
+  });
+
+  it('se puede elegir el pago antes de terminar, y el resumen lo muestra', () => {
+    const anotado = conversar(['una limonada', 'pago con tarjeta']);
+    expect(anotado.respuestas[0]).toMatch(/Anotado: te enviaré el enlace/);
+    expect(anotado.contexto.carrito).toHaveLength(1);
+
+    const r = conversar(['una limonada', 'pago con tarjeta', 'listo', 'recoger']);
+    expect(r.respuestas[0]).toContain('💳 Pago en línea');
+    expect(conversar(['una limonada', 'pago con tarjeta', 'listo', 'recoger', 'sí']).contexto.metodoPago).toBe('ONLINE');
+  });
+
+  it('sin pasarela, pedir el pago en línea explica que solo hay efectivo y no confirma', () => {
+    const r = conversar(['una limonada', 'listo', 'recoger', 'en línea'], false);
+    expect(r).toMatchObject({ paso: 'CONFIRMACION', crearPedido: false });
+    expect(r.respuestas[0]).toMatch(/solo recibimos pago en efectivo/);
   });
 });

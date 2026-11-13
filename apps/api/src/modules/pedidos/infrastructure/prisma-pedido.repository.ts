@@ -28,6 +28,8 @@ const VISTA = {
     },
   },
   detalles: { select: { id: true, nombreProducto: true, precioUnitario: true, cantidad: true, subtotal: true, notas: true } },
+  // Solo lectura: los pagos son del módulo de pagos. Aquí basta el último pago en línea para mostrarlo en la tarjeta
+  pagos: { where: { metodo: 'ONLINE' }, orderBy: { creadoEn: 'desc' }, take: 1, select: { estado: true } },
 } satisfies Prisma.PedidoSelect;
 
 function filtroDe(alcance: Alcance): Prisma.PedidoWhereInput {

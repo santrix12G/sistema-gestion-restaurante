@@ -51,6 +51,7 @@ Intenciones:
 - terminar (ya no quiere pedir más: "listo", "eso es todo")
 - confirmar (sí) o negar (no), cuando responde a una pregunta
 - domicilio o recoger (cómo recibe el pedido), cancelar (abandona el pedido), otro
+- pago_en_linea (quiere pagar ahora con tarjeta, PSE o un enlace) o pago_efectivo (paga en efectivo al recibir)
 Usa en "producto" el nombre exacto del menú. Si pide algo que no está en el menú, escríbelo tal como lo dijo.
 En el paso DIRECCION, si el mensaje es una dirección, la intención es "otro".`;
 
