@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
+import { useAvisos } from '@/components/avisos';
 import { Aviso, Boton, Campo, Cargando, Titulo } from '@/components/ui';
 import { llamar, mensajeDeError } from '@/lib/api';
 import { NOMBRE_TIPO_MESA } from '@/lib/formato';
@@ -23,17 +24,19 @@ export default function Mesas() {
   const [errorAccion, setErrorAccion] = useState<string>();
   const [ocupado, setOcupado] = useState<string>();
   const [editando, setEditando] = useState<string>();
+  const { avisar, confirmar } = useAvisos();
 
   useEffect(() => {
     if (usuario && usuario.rol !== 'ADMIN') router.replace('/pedidos');
   }, [usuario, router]);
 
-  async function actuar(id: string, accion: () => Promise<unknown>) {
+  async function actuar(id: string, accion: () => Promise<unknown>, hecho?: string) {
     setErrorAccion(undefined);
     setOcupado(id);
     try {
       await accion();
       setEditando(undefined);
+      if (hecho) avisar(hecho);
     } catch (e) {
       setErrorAccion(mensajeDeError(e));
     }
@@ -42,9 +45,15 @@ export default function Mesas() {
   }
 
   const cambiar = (m: Mesa, datos: Partial<Pick<Mesa, 'numero' | 'capacidad' | 'activa'>>) =>
-    actuar(m.id, () => llamar(`/mesas/${m.id}`, { metodo: 'PATCH', cuerpo: datos }));
-  const borrar = (m: Mesa) =>
-    confirm(`¿Borrar la mesa ${m.codigo}?`) && actuar(m.id, () => llamar(`/mesas/${m.id}`, { metodo: 'DELETE' }));
+    actuar(
+      m.id,
+      () => llamar(`/mesas/${m.id}`, { metodo: 'PATCH', cuerpo: datos }),
+      datos.activa === undefined ? `Mesa ${m.codigo} actualizada` : `Mesa ${m.codigo} ${datos.activa ? 'reactivada' : 'suspendida'}`,
+    );
+  async function borrar(m: Mesa) {
+    const si = await confirmar({ titulo: `¿Borrar la mesa ${m.codigo}?`, detalle: 'Esta acción no se puede deshacer.', aceptar: 'Borrar mesa', peligro: true });
+    if (si) await actuar(m.id, () => llamar(`/mesas/${m.id}`, { metodo: 'DELETE' }), `Mesa ${m.codigo} borrada`);
+  }
 
   return (
     <>

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
+import { NOMBRE_RESTAURANTE } from '@/components/marca';
 import { ProveedorSesion } from '@/lib/sesion';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Restaurante',
+  title: NOMBRE_RESTAURANTE,
   description: 'Gestión de pedidos del restaurante',
 };
 
