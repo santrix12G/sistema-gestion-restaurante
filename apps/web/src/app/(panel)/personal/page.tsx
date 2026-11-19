@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
+import { useAvisos } from '@/components/avisos';
 import { Aviso, Boton, Campo, Cargando, Titulo } from '@/components/ui';
 import { llamar, mensajeDeError } from '@/lib/api';
 import { useDatos } from '@/lib/hooks';
@@ -14,6 +15,7 @@ const ROLES: { rol: RolPersonal; nombre: string; plural: string }[] = [
   { rol: 'REPARTIDOR', nombre: 'Repartidor', plural: 'Repartidores' },
 ];
 const AYUDA_CONTRASENA = 'Al menos 8 caracteres, con letras y números';
+const contarActivos = (n: number) => `${n} ${n === 1 ? 'activo' : 'activos'}`;
 
 /** El administrador registra, edita, suspende y borra las cuentas de meseros y repartidores. */
 export default function Personal() {
@@ -23,17 +25,19 @@ export default function Personal() {
   const [errorAccion, setErrorAccion] = useState<string>();
   const [ocupado, setOcupado] = useState<string>();
   const [editando, setEditando] = useState<string>();
+  const { avisar, confirmar } = useAvisos();
 
   useEffect(() => {
     if (usuario && usuario.rol !== 'ADMIN') router.replace('/pedidos');
   }, [usuario, router]);
 
-  async function actuar(id: string, accion: () => Promise<unknown>) {
+  async function actuar(id: string, accion: () => Promise<unknown>, hecho?: string) {
     setErrorAccion(undefined);
     setOcupado(id);
     try {
       await accion();
       setEditando(undefined);
+      if (hecho) avisar(hecho);
     } catch (e) {
       setErrorAccion(mensajeDeError(e));
     }
@@ -41,11 +45,17 @@ export default function Personal() {
     setOcupado(undefined);
   }
 
-  const cambiar = (c: Cuenta, datos: Record<string, unknown>) => actuar(c.id, () => llamar(`/personal/${c.id}`, { metodo: 'PATCH', cuerpo: datos }));
-  const suspender = (c: Cuenta) =>
-    c.activo ? confirm(`¿Suspender a ${c.nombre}? No podrá entrar y su sesión abierta se cerrará.`) && cambiar(c, { activo: false }) : cambiar(c, { activo: true });
-  const borrar = (c: Cuenta) =>
-    confirm(`¿Borrar la cuenta de ${c.nombre}? Esta acción no se puede deshacer.`) && actuar(c.id, () => llamar(`/personal/${c.id}`, { metodo: 'DELETE' }));
+  const cambiar = (c: Cuenta, datos: Record<string, unknown>, hecho = `Cuenta de ${c.nombre} actualizada`) =>
+    actuar(c.id, () => llamar(`/personal/${c.id}`, { metodo: 'PATCH', cuerpo: datos }), hecho);
+  async function suspender(c: Cuenta) {
+    if (!c.activo) return cambiar(c, { activo: true }, `${c.nombre} puede entrar de nuevo`);
+    const si = await confirmar({ titulo: `¿Suspender a ${c.nombre}?`, detalle: 'No podrá entrar y su sesión abierta se cerrará.', aceptar: 'Suspender', peligro: true });
+    if (si) await cambiar(c, { activo: false }, `${c.nombre} quedó suspendido`);
+  }
+  async function borrar(c: Cuenta) {
+    const si = await confirmar({ titulo: `¿Borrar la cuenta de ${c.nombre}?`, detalle: 'Esta acción no se puede deshacer.', aceptar: 'Borrar cuenta', peligro: true });
+    if (si) await actuar(c.id, () => llamar(`/personal/${c.id}`, { metodo: 'DELETE' }), `Cuenta de ${c.nombre} borrada`);
+  }
 
   return (
     <>
@@ -65,7 +75,7 @@ export default function Personal() {
               <section key={rol} className="rounded-2xl bg-stone-200/60 p-3">
                 <h2 className="mb-3 flex items-center justify-between px-1 text-sm font-semibold text-stone-700">
                   {plural}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs">{lista.filter((c) => c.activo).length} activos</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs">{contarActivos(lista.filter((c) => c.activo).length)}</span>
                 </h2>
                 <ul className="space-y-2">
                   {lista.map((c) =>

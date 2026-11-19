@@ -1,9 +1,11 @@
 'use client';
 
+import { Bike, Check, CirclePlus, LucideIcon, Search, ShoppingBag, Store, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useAvisos } from '@/components/avisos';
 import { Aviso, Boton, Cargando, Titulo, Vacio } from '@/components/ui';
-import { TarjetaPedido } from '@/components/tarjeta-pedido';
+import { MINUTOS_ATENCION, MINUTOS_DEMORA, TarjetaPedido } from '@/components/tarjeta-pedido';
 import { llamar } from '@/lib/api';
 import { coincide } from '@/lib/buscar';
 import { useCambiarEstado } from '@/lib/cambiar-estado';
@@ -17,6 +19,7 @@ type Vista = 'activos' | 'cerrados';
 interface Columna {
   clave: string;
   titulo: string;
+  icono: LucideIcon;
   filtro: (p: Pedido) => boolean;
   vacia: string;
 }
@@ -35,16 +38,16 @@ function puedeCerrar(p: Pedido, u: UsuarioSesion) {
 function columnasPara(u: UsuarioSesion): Columna[] {
   if (u.rol === 'REPARTIDOR') {
     return [
-      { clave: 'mios', titulo: 'Llevando yo', filtro: (p) => p.entrega?.repartidor?.id === u.id, vacia: 'No llevas ningún domicilio' },
-      { clave: 'libres', titulo: 'Disponibles para llevar', filtro: (p) => !p.entrega?.repartidor, vacia: 'No hay domicilios esperando' },
+      { clave: 'mios', titulo: 'Llevando yo', icono: Bike, filtro: (p) => p.entrega?.repartidor?.id === u.id, vacia: 'No llevas ningún domicilio' },
+      { clave: 'libres', titulo: 'Disponibles para llevar', icono: ShoppingBag, filtro: (p) => !p.entrega?.repartidor, vacia: 'No hay domicilios esperando' },
     ];
   }
   const columnas: Columna[] = [
-    { clave: 'mesa', titulo: 'En mesa', filtro: (p) => p.tipo === 'MESA', vacia: 'Sin pedidos' },
-    { clave: 'recoger', titulo: 'Para recoger', filtro: (p) => p.tipo === 'RECOGER', vacia: 'Sin pedidos' },
+    { clave: 'mesa', titulo: 'En mesa', icono: Store, filtro: (p) => p.tipo === 'MESA', vacia: 'Sin pedidos' },
+    { clave: 'recoger', titulo: 'Para recoger', icono: ShoppingBag, filtro: (p) => p.tipo === 'RECOGER', vacia: 'Sin pedidos' },
   ];
   // Los domicilios llegan por el chatbot: el mesero no los registra
-  if (u.rol === 'ADMIN') columnas.push({ clave: 'domicilio', titulo: 'Domicilios', filtro: (p) => p.tipo === 'DOMICILIO', vacia: 'Sin pedidos' });
+  if (u.rol === 'ADMIN') columnas.push({ clave: 'domicilio', titulo: 'Domicilios', icono: Bike, filtro: (p) => p.tipo === 'DOMICILIO', vacia: 'Sin pedidos' });
   return columnas;
 }
 
@@ -56,6 +59,7 @@ export default function Pedidos() {
   const { datos: pedidos, error, recargar } = useDatos(() => llamar<Pedido[]>(ruta), 30_000);
   useTiempoReal(recargar);
   const { cambiar, tomar, ocupado, error: errorCambio } = useCambiarEstado(recargar);
+  const { avisar, confirmar } = useAvisos();
   const atiende = usuario?.rol === 'ADMIN' || usuario?.rol === 'MESERO';
 
   // Al cambiar de pestaña, carga la otra lista sin esperar a la consulta periódica
@@ -69,6 +73,21 @@ export default function Pedidos() {
   const hallados = enVista.filter((p) => coincide(p, consulta));
   const buscando = consulta.trim() !== '';
 
+  async function cobrar(p: Pedido) {
+    const pagadoEnLinea = p.pagos?.[0]?.estado === 'APROBADO';
+    const si = await confirmar({
+      titulo: `¿Marcar el pedido #${p.numero} como pagado?`,
+      detalle: pagadoEnLinea ? `Ya se pagó en línea: no cobres. Total ${pesos(p.total)}.` : `Cobra ${pesos(p.total)} antes de confirmar.`,
+      aceptar: 'Marcar pagado',
+    });
+    if (si && (await cambiar(p.id, 'PAGADO'))) avisar(`Pedido #${p.numero} pagado`);
+  }
+
+  async function cancelar(p: Pedido) {
+    const si = await confirmar({ titulo: `¿Cancelar el pedido #${p.numero}?`, detalle: 'El pedido pasa a cancelados y no se puede reabrir.', aceptar: 'Cancelar pedido', peligro: true });
+    if (si && (await cambiar(p.id, 'CANCELADO'))) avisar(`Pedido #${p.numero} cancelado`);
+  }
+
   function acciones(p: Pedido) {
     if (!usuario) return null;
     const deshabilitado = ocupado === p.id;
@@ -77,22 +96,19 @@ export default function Pedidos() {
     return (
       <>
         {usuario.rol === 'REPARTIDOR' && libre && (
-          <Boton onClick={() => tomar(p.id)} disabled={deshabilitado}>Llevar domicilio</Boton>
+          <Boton className="flex-1" onClick={async () => (await tomar(p.id)) && avisar(`Llevas el domicilio #${p.numero}`)} disabled={deshabilitado}>
+            <Bike className="size-4" aria-hidden />
+            Llevar domicilio
+          </Boton>
         )}
         {puedeCerrar(p, usuario) && (
           <>
-            <Boton
-              variante="exito"
-              disabled={deshabilitado}
-              onClick={() => confirm(`¿Marcar el pedido #${p.numero} como pagado (${pesos(p.total)})?`) && cambiar(p.id, 'PAGADO')}
-            >
+            <Boton variante="exito" className="flex-1" disabled={deshabilitado} onClick={() => cobrar(p)}>
+              <Check className="size-4" aria-hidden />
               {domicilio ? 'Entregado y pagado' : 'Pagado'}
             </Boton>
-            <Boton
-              variante="peligro"
-              disabled={deshabilitado}
-              onClick={() => confirm(`¿Cancelar el pedido #${p.numero}?`) && cambiar(p.id, 'CANCELADO')}
-            >
+            <Boton variante="peligro" disabled={deshabilitado} onClick={() => cancelar(p)}>
+              <X className="size-4" aria-hidden />
               Cancelar
             </Boton>
           </>
@@ -106,7 +122,21 @@ export default function Pedidos() {
 
   return (
     <>
-      <Titulo accion={atiende && <Link href="/pedidos/nuevo"><Boton>Nuevo pedido</Boton></Link>}>{titulo}</Titulo>
+      <Titulo
+        detalle={pedidos && vista === 'activos' ? `${enVista.length} ${enVista.length === 1 ? 'pedido abierto' : 'pedidos abiertos'}` : undefined}
+        accion={
+          atiende && (
+            <Link href="/pedidos/nuevo">
+              <Boton>
+                <CirclePlus className="size-4" aria-hidden />
+                Nuevo pedido
+              </Boton>
+            </Link>
+          )
+        }
+      >
+        {titulo}
+      </Titulo>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div role="tablist" className="inline-flex rounded-xl bg-stone-200/70 p-1 text-sm font-medium">
           {(['activos', 'cerrados'] as Vista[]).map((v) => (
@@ -121,14 +151,15 @@ export default function Pedidos() {
             </button>
           ))}
         </div>
-        <label className="w-full sm:w-80">
+        <label className="relative w-full sm:w-80">
           <span className="sr-only">Buscar pedidos</span>
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-400" aria-hidden />
           <input
             type="search"
             value={consulta}
             onChange={(e) => setConsulta(e.target.value)}
             placeholder="Buscar: M3, #12, cliente, producto…"
-            className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
+            className="w-full rounded-xl border border-stone-300 bg-white py-2 pr-3 pl-9 text-sm outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
           />
         </label>
         {buscando && pedidos && (
@@ -136,6 +167,7 @@ export default function Pedidos() {
             {hallados.length} de {enVista.length}
           </span>
         )}
+        {vista === 'activos' && <LeyendaEspera />}
       </div>
       <div className="mb-4 space-y-2">
         <Aviso>{error}</Aviso>
@@ -147,11 +179,15 @@ export default function Pedidos() {
         <div className={`grid gap-4 ${columnas.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           {columnas.map((c) => {
             const lista = hallados.filter(c.filtro);
+            const Icono = c.icono;
             return (
               <section key={c.clave} className="rounded-2xl bg-stone-200/60 p-3">
                 <h2 className="mb-3 flex items-center justify-between px-1 text-sm font-semibold text-stone-700">
-                  {c.titulo}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs">{lista.length}</span>
+                  <span className="flex items-center gap-2">
+                    <Icono className="size-4 text-stone-500" aria-hidden />
+                    {c.titulo}
+                  </span>
+                  <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold tabular-nums">{lista.length}</span>
                 </h2>
                 <div className="space-y-3">
                   {lista.map((p) => <TarjetaPedido key={p.id} pedido={p} acciones={acciones(p)} />)}
@@ -206,5 +242,24 @@ function Cerrados({ pedidos, buscando }: { pedidos: Pedido[]; buscando: boolean 
         </ul>
       </div>
     </>
+  );
+}
+
+/** Qué significa el color de cada tarjeta */
+function LeyendaEspera() {
+  const niveles = [
+    { clase: 'bg-emerald-500', texto: `Menos de ${MINUTOS_ATENCION} min` },
+    { clase: 'bg-amber-500', texto: `${MINUTOS_ATENCION} a ${MINUTOS_DEMORA} min` },
+    { clase: 'bg-red-500', texto: `Más de ${MINUTOS_DEMORA} min` },
+  ];
+  return (
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 sm:ml-auto" aria-label="Tiempo de espera">
+      {niveles.map((n) => (
+        <li key={n.texto} className="flex items-center gap-1.5">
+          <span className={`size-2.5 rounded-full ${n.clase}`} aria-hidden />
+          {n.texto}
+        </li>
+      ))}
+    </ul>
   );
 }

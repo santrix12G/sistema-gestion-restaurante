@@ -34,3 +34,13 @@ export function useDatos<T>(cargar: () => Promise<T>, cadaMs?: number) {
 
   return { datos, error, recargar };
 }
+
+/** La hora actual, que se actualiza sola cada cierto tiempo: así los "hace 5 min" avanzan sin recargar */
+export function useAhora(cadaMs = 30_000) {
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const intervalo = setInterval(() => setAhora(Date.now()), cadaMs);
+    return () => clearInterval(intervalo);
+  }, [cadaMs]);
+  return ahora;
+}

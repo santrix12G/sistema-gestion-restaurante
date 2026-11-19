@@ -1,7 +1,8 @@
 import { codigoMesa, destino } from './formato';
 import { Pedido } from './tipos';
 
-const normalizar = (texto: string) =>
+/** Minúsculas y sin tildes: "Limonáda" y "limonada" coinciden */
+export const normalizar = (texto: string) =>
   texto
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

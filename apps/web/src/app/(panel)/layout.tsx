@@ -1,59 +1,157 @@
 'use client';
 
+import { BookOpen, ChartColumn, CirclePlus, ClipboardList, LayoutGrid, LogOut, LucideIcon, Menu, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import { ProveedorAvisos } from '@/components/avisos';
+import { Marca } from '@/components/marca';
 import { useSesion } from '@/lib/sesion';
-import { Rol } from '@/lib/tipos';
+import { Rol, UsuarioSesion } from '@/lib/tipos';
 
-const NAVEGACION: { ruta: string; texto: string; roles: Rol[] }[] = [
-  { ruta: '/pedidos', texto: 'Pedidos', roles: ['ADMIN', 'MESERO', 'REPARTIDOR'] },
-  { ruta: '/pedidos/nuevo', texto: 'Nuevo pedido', roles: ['ADMIN', 'MESERO'] },
-  { ruta: '/menu', texto: 'Menú', roles: ['ADMIN', 'MESERO'] },
-  { ruta: '/estadisticas', texto: 'Estadísticas', roles: ['ADMIN'] },
-  { ruta: '/mesas', texto: 'Mesas', roles: ['ADMIN'] },
-  { ruta: '/personal', texto: 'Personal', roles: ['ADMIN'] },
+interface Opcion {
+  ruta: string;
+  texto: string;
+  icono: LucideIcon;
+  roles: Rol[];
+}
+
+/** El menú, agrupado por lo que hace cada sección. Cada rol solo ve sus opciones */
+const GRUPOS: { titulo: string; opciones: Opcion[] }[] = [
+  {
+    titulo: 'Operación',
+    opciones: [
+      { ruta: '/pedidos', texto: 'Pedidos', icono: ClipboardList, roles: ['ADMIN', 'MESERO', 'REPARTIDOR'] },
+      { ruta: '/pedidos/nuevo', texto: 'Nuevo pedido', icono: CirclePlus, roles: ['ADMIN', 'MESERO'] },
+    ],
+  },
+  {
+    titulo: 'Administración',
+    opciones: [
+      { ruta: '/menu', texto: 'Menú', icono: BookOpen, roles: ['ADMIN', 'MESERO'] },
+      { ruta: '/mesas', texto: 'Mesas', icono: LayoutGrid, roles: ['ADMIN'] },
+      { ruta: '/personal', texto: 'Personal', icono: Users, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    titulo: 'Análisis',
+    opciones: [{ ruta: '/estadisticas', texto: 'Estadísticas', icono: ChartColumn, roles: ['ADMIN'] }],
+  },
 ];
 
 const NOMBRE_ROL: Record<Rol, string> = { ADMIN: 'Administrador', MESERO: 'Mesero', REPARTIDOR: 'Repartidor' };
+
+const iniciales = (nombre: string) =>
+  nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join('');
 
 export default function PanelLayout({ children }: { children: ReactNode }) {
   const { usuario, lista, salir } = useSesion();
   const router = useRouter();
   const ruta = usePathname();
+  const [abierto, setAbierto] = useState(false);
 
   useEffect(() => {
     if (lista && !usuario) router.replace('/login');
   }, [lista, usuario, router]);
 
+  // En el celular, el menú se cierra al cambiar de pantalla
+  useEffect(() => setAbierto(false), [ruta]);
+
   if (!usuario) return null;
-  const opciones = NAVEGACION.filter((n) => n.roles.includes(usuario.rol));
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/" className="font-bold text-marca-600">Restaurante</Link>
-          <nav className="flex flex-1 flex-wrap gap-1">
-            {opciones.map((o) => (
-              <Link
-                key={o.ruta}
-                href={o.ruta}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${ruta === o.ruta ? 'bg-marca-50 text-marca-700' : 'text-stone-600 hover:bg-stone-100'}`}
-              >
-                {o.texto}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-stone-600">
-              {usuario.nombre} · <span className="text-stone-400">{NOMBRE_ROL[usuario.rol]}</span>
-            </span>
-            <button onClick={salir} className="font-medium text-stone-600 underline-offset-2 hover:underline">Salir</button>
+    <ProveedorAvisos>
+      <div className="min-h-screen lg:pl-64">
+        {/* Barra superior, solo en pantallas pequeñas */}
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:hidden">
+          <Marca />
+          <button
+            onClick={() => setAbierto(true)}
+            className="rounded-lg p-2 text-stone-700 hover:bg-stone-100"
+            aria-label="Abrir el menú"
+            aria-expanded={abierto}
+            aria-controls="menu-lateral"
+          >
+            <Menu className="size-6" aria-hidden />
+          </button>
+        </header>
+
+        {abierto && <div className="fixed inset-0 z-30 bg-stone-900/40 lg:hidden" onClick={() => setAbierto(false)} aria-hidden />}
+
+        <aside
+          id="menu-lateral"
+          className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-stone-200 bg-white transition-transform lg:translate-x-0 ${
+            abierto ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex items-center justify-between px-5 py-5">
+            <Link href="/" className="min-w-0">
+              <Marca />
+            </Link>
+            <button onClick={() => setAbierto(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 lg:hidden" aria-label="Cerrar el menú">
+              <X className="size-5" aria-hidden />
+            </button>
           </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+          <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2" aria-label="Menú principal">
+            {GRUPOS.map((g) => {
+              const opciones = g.opciones.filter((o) => o.roles.includes(usuario.rol));
+              if (opciones.length === 0) return null;
+              return (
+                <div key={g.titulo}>
+                  <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-400">{g.titulo}</p>
+                  <ul className="space-y-0.5">
+                    {opciones.map((o) => {
+                      const activa = ruta === o.ruta;
+                      const Icono = o.icono;
+                      return (
+                        <li key={o.ruta}>
+                          <Link
+                            href={o.ruta}
+                            aria-current={activa ? 'page' : undefined}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                              activa ? 'bg-marca-50 text-marca-700' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+                            }`}
+                          >
+                            <Icono className={`size-[18px] ${activa ? 'text-marca-600' : 'text-stone-400'}`} aria-hidden />
+                            {o.texto}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </nav>
+          <TarjetaUsuario usuario={usuario} salir={salir} />
+        </aside>
+
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+      </div>
+    </ProveedorAvisos>
+  );
+}
+
+function TarjetaUsuario({ usuario, salir }: { usuario: UsuarioSesion; salir: () => void }) {
+  const rol = NOMBRE_ROL[usuario.rol];
+  return (
+    <div className="flex items-center gap-3 border-t border-stone-200 px-4 py-4">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-stone-100 text-sm font-semibold text-stone-700" aria-hidden>
+        {iniciales(usuario.nombre)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{usuario.nombre}</p>
+        {/* El administrador del seed se llama "Administrador": no se repite */}
+        {usuario.nombre !== rol && <p className="truncate text-xs text-stone-500">{rol}</p>}
+      </div>
+      <button onClick={salir} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900" aria-label="Cerrar sesión" title="Cerrar sesión">
+        <LogOut className="size-[18px]" aria-hidden />
+      </button>
     </div>
   );
 }
