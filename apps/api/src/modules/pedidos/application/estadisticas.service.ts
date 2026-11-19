@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { rangoDelDia } from '../../../shared/fecha';
+import { rangoDePeriodo, rangoDelDia } from '../../../shared/fecha';
 import { PrismaService } from '../../../shared/prisma.service';
 import { PedidoCerrado, resumirDia } from '../domain/estadisticas';
+import { PedidoDelPeriodo, resumirPeriodo } from '../domain/reporte-periodo';
 
 /** Cifras del día para el administrador */
 @Injectable()
@@ -25,6 +26,43 @@ export class EstadisticasService {
       fecha: dia,
       ...resumirDia(cerrados as PedidoCerrado[]),
       activos: activos && { pedidos: activos._count, total: activos._sum.total ?? 0 },
+    };
+  }
+
+  /**
+   * Reporte de varios días, con las dos fechas incluidas. Igual que el del día, un pedido cuenta el día en que se cobró o se canceló.
+   * Se compara con el período anterior del mismo largo.
+   */
+  async delPeriodo(desdeDia: string, hastaDia: string) {
+    const { desde, hasta, dias, anterior } = rangoDePeriodo(desdeDia, hastaDia);
+    const persona = { select: { id: true, nombre: true } };
+    const [cerrados, ventasAnteriores, catalogo] = await Promise.all([
+      this.prisma.pedido.findMany({
+        where: { estado: { in: ['PAGADO', 'CANCELADO'] }, actualizadoEn: { gte: desde, lt: hasta } },
+        select: {
+          estado: true,
+          tipo: true,
+          canal: true,
+          creadoEn: true,
+          actualizadoEn: true,
+          total: true,
+          creadoPor: persona,
+          entrega: { select: { asignadaEn: true, entregadaEn: true, repartidor: persona } },
+          detalles: { select: { productoId: true, nombreProducto: true, cantidad: true, subtotal: true } },
+        },
+      }),
+      this.prisma.pedido.aggregate({
+        where: { estado: 'PAGADO', actualizadoEn: { gte: anterior.desde, lt: anterior.hasta } },
+        _count: true,
+        _sum: { total: true },
+      }),
+      this.prisma.producto.findMany({ select: { id: true, nombre: true } }),
+    ]);
+    const pedidos: PedidoDelPeriodo[] = cerrados.map(({ actualizadoEn, ...p }) => ({ ...p, cerradoEn: actualizadoEn }) as PedidoDelPeriodo);
+    return {
+      desde: dias[0],
+      hasta: dias[dias.length - 1],
+      ...resumirPeriodo(pedidos, dias, catalogo, { total: ventasAnteriores._sum.total ?? 0, pedidos: ventasAnteriores._count }),
     };
   }
 }

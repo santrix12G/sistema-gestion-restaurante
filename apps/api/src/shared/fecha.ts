@@ -31,3 +31,28 @@ export function rangoDelDia(fecha?: string, ahora = new Date()) {
   const inicio = new Date(desde.getTime() - DESFASE_COLOMBIA_MS);
   return { dia, desde: inicio, hasta: new Date(inicio.getTime() + UN_DIA_MS), esHoy: dia === hoyEnColombia(ahora) };
 }
+
+/** El día (AAAA-MM-DD) en Colombia en que cae un momento */
+export const diaEnColombia = (momento: Date) => hoyEnColombia(momento);
+
+/** Un período no puede pasar de un año: así el reporte responde rápido */
+export const MAX_DIAS_PERIODO = 366;
+
+/**
+ * El intervalo [desde, hasta) de varios días seguidos en Colombia, con las dos fechas incluidas,
+ * la lista de esos días y el período anterior del mismo largo, para comparar.
+ */
+export function rangoDePeriodo(desdeDia: string, hastaDia: string, ahora = new Date()) {
+  const inicio = rangoDelDia(desdeDia, ahora);
+  const fin = rangoDelDia(hastaDia, ahora);
+  if (inicio.dia > fin.dia) throw new DomainError('validacion', 'La fecha inicial no puede ser posterior a la final');
+  const cantidad = Math.round((fin.desde.getTime() - inicio.desde.getTime()) / UN_DIA_MS) + 1;
+  if (cantidad > MAX_DIAS_PERIODO) throw new DomainError('validacion', `El período no puede pasar de ${MAX_DIAS_PERIODO} días`);
+  const dias = Array.from({ length: cantidad }, (_, i) => new Date(inicio.desde.getTime() + i * UN_DIA_MS + DESFASE_COLOMBIA_MS).toISOString().slice(0, 10));
+  return {
+    desde: inicio.desde,
+    hasta: fin.hasta,
+    dias,
+    anterior: { desde: new Date(inicio.desde.getTime() - cantidad * UN_DIA_MS), hasta: inicio.desde },
+  };
+}

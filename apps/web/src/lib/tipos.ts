@@ -104,3 +104,35 @@ export interface EstadisticasDia {
   horaPico: number | null;
   masVendidos: { productoId: string; nombre: string; cantidad: number; total: number }[];
 }
+
+/** Reporte de varios días para el administrador (las dos fechas incluidas) */
+export interface ReportePeriodo extends Omit<EstadisticasDia, 'fecha' | 'activos'> {
+  desde: string;
+  hasta: string;
+  /** Contra el período anterior del mismo largo. La variación es un porcentaje entero, o null si antes no hubo ventas */
+  comparacion: { anterior: { total: number; pedidos: number }; variacionVentas: number | null; variacionPedidos: number | null };
+  porDia: { fecha: string; pedidos: number; total: number }[];
+  /** De lunes (1) a domingo (0). `promedio` es lo vendido en promedio cada uno de esos días */
+  porDiaSemana: { diaSemana: number; dias: number; pedidos: number; total: number; promedio: number }[];
+  mejorDia: { fecha: string; pedidos: number; total: number } | null;
+  /** Todos los productos: los vendidos primero y al final los que no se vendieron. `porcentaje` es la parte de lo vendido en productos */
+  productos: { productoId: string; nombre: string; cantidad: number; total: number; porcentaje: number }[];
+  personal: {
+    meseros: { id: string; nombre: string; pedidos: number; total: number; promedio: number }[];
+    chatbot: { pedidos: number; total: number };
+    repartidores: { id: string; nombre: string; entregas: number; total: number; minutosEnCamino: number | null }[];
+  };
+  /** Minutos desde que llega el pedido hasta que se cobra. Demorados son los que pasan del límite */
+  tiempos: {
+    limiteMinutos: number;
+    general: TiempoServicio;
+    porTipo: (TiempoServicio & { tipo: TipoPedido })[];
+  };
+}
+
+export interface TiempoServicio {
+  pedidos: number;
+  minutosPromedio: number | null;
+  demorados: number;
+  porcentajeDemorados: number;
+}

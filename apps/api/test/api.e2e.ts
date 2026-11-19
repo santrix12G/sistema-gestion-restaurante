@@ -377,4 +377,31 @@ describe('estadísticas', () => {
     expect((await delDia('?fecha=2999-01-01')).status).toBe(400);
     expect((await delDia('?fecha=15-01-2020')).status).toBe(400);
   });
+
+  it('el reporte por período cuadra con el del día y valida las fechas', async () => {
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    const periodo = (consulta: string, rol: 'admin' | 'mesero' = 'admin') => api().get(`/api/estadisticas/periodo${consulta}`).set(como(rol));
+    expect((await periodo(`?desde=${hoy}&hasta=${hoy}`, 'mesero')).status).toBe(403);
+
+    const [res, dia] = await Promise.all([periodo(`?desde=${hoy}&hasta=${hoy}`), delDia()]);
+    expect(res.status).toBe(200);
+    const r = res.body;
+    expect(r).toMatchObject({ desde: hoy, hasta: hoy, ventas: dia.body.ventas, cancelados: dia.body.cancelados });
+    expect(r.porDia).toEqual([{ fecha: hoy, pedidos: dia.body.ventas.pedidos, total: dia.body.ventas.total }]);
+    expect(r.porDiaSemana).toHaveLength(7);
+    // Están todos los productos del menú, y sus ventas suman lo vendido sin domicilios
+    const { body: menu } = await api().get('/api/catalogo/productos').set(como('admin'));
+    expect(r.productos.length).toBeGreaterThanOrEqual(menu.length);
+    // Lo del mesero y lo del chatbot suman lo vendido; los tiempos cuentan todos los pagados
+    const deMeseros = r.personal.meseros.reduce((s: number, m: { total: number }) => s + m.total, 0);
+    expect(deMeseros + r.personal.chatbot.total).toBe(r.ventas.total);
+    expect(r.tiempos.general.pedidos).toBe(r.ventas.pedidos);
+    expect(r.tiempos.general.minutosPromedio).toBeGreaterThanOrEqual(0);
+
+    expect((await periodo('?desde=2020-01-01&hasta=2020-01-31')).body).toMatchObject({ ventas: { total: 0 }, mejorDia: null, comparacion: { variacionVentas: null } });
+    expect((await periodo(`?desde=${hoy}&hasta=2020-01-01`)).status).toBe(400);
+    expect((await periodo('?desde=2020-01-01&hasta=2999-01-01')).status).toBe(400);
+    expect((await periodo('?desde=2020-01-01&hasta=2021-12-31')).status).toBe(400);
+    expect((await periodo('')).status).toBe(400);
+  });
 });
