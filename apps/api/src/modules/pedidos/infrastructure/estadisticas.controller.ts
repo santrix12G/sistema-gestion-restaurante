@@ -12,4 +12,10 @@ export class EstadisticasController {
   delDia(@Query('fecha') fecha?: string) {
     return this.estadisticas.delDia(fecha || undefined);
   }
+
+  /** Reporte de un período: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD, con las dos fechas incluidas y hasta un año. */
+  @Get('periodo')
+  delPeriodo(@Query('desde') desde = '', @Query('hasta') hasta = '') {
+    return this.estadisticas.delPeriodo(desde, hasta);
+  }
 }
