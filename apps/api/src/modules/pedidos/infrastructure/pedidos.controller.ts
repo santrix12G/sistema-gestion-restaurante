@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { METODOS_COBRO, MetodoCobro } from '../../caja';
 import { Roles, Usuario, UsuarioActual } from '../../identidad';
 import { ActualizarEstadoPedidoUseCase } from '../application/actualizar-estado-pedido.use-case';
 import { ConsultarPedidosService } from '../application/consultar-pedidos.service';
@@ -66,6 +67,11 @@ class CrearPedidoDto {
 class CambiarEstadoDto {
   @IsIn(ESTADOS_CIERRE, { message: 'El estado debe ser PAGADO o CANCELADO' })
   estado!: EstadoCierre;
+
+  /** Con qué pagó el cliente. Sin método se toma efectivo, como lo hacen las versiones anteriores de la app */
+  @IsOptional()
+  @IsIn(METODOS_COBRO, { message: 'El método de pago debe ser EFECTIVO, TARJETA o TRANSFERENCIA' })
+  metodo?: MetodoCobro;
 }
 
 @Controller()
@@ -102,8 +108,8 @@ export class PedidosController {
   }
 
   @Patch('pedidos/:id/estado')
-  cambiarEstado(@Param('id', ParseUUIDPipe) id: string, @Body() { estado }: CambiarEstadoDto, @Usuario() usuario: UsuarioActual) {
-    return this.actualizarEstado.ejecutar(id, estado, usuario);
+  cambiarEstado(@Param('id', ParseUUIDPipe) id: string, @Body() { estado, metodo }: CambiarEstadoDto, @Usuario() usuario: UsuarioActual) {
+    return this.actualizarEstado.ejecutar(id, estado, usuario, metodo);
   }
 
   /** El repartidor toma un domicilio libre y sale a entregarlo */

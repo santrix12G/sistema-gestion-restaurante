@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { io } from 'socket.io-client';
 import { llamar, mensajeDeError, URL_API } from './api';
+import { MetodoCobro } from './confirmar';
 import { useSesion } from './sesion';
 import { EstadoPedido, Pedido } from './tipos';
 
@@ -79,9 +80,12 @@ async function intentar(accion: () => Promise<unknown>): Promise<string | null> 
   }
 }
 
-/** Marca el pedido como pagado o cancelado. Devuelve el mensaje de error, o null si salió bien. */
-export function cerrarPedido(pedido: Pedido, estado: 'PAGADO' | 'CANCELADO') {
-  return intentar(() => llamar(`/pedidos/${pedido.id}/estado`, { metodo: 'PATCH', cuerpo: { estado } }));
+/**
+ * Marca el pedido como pagado (con qué pagó el cliente) o cancelado.
+ * Devuelve el mensaje de error, o null si salió bien. Sin caja abierta la API no deja cobrar.
+ */
+export function cerrarPedido(pedido: Pedido, estado: 'PAGADO' | 'CANCELADO', metodo?: MetodoCobro) {
+  return intentar(() => llamar(`/pedidos/${pedido.id}/estado`, { metodo: 'PATCH', cuerpo: { estado, metodo } }));
 }
 
 /** El repartidor toma el domicilio: queda a su nombre. Devuelve el mensaje de error, o null si salió bien. */

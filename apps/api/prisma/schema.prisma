@@ -67,6 +67,10 @@ enum EstadoEntrega {
 enum MetodoPago {
   EFECTIVO
   ONLINE
+  /// Con datáfono, en el local o al entregar
+  TARJETA
+  /// Nequi, Daviplata o consignación a la cuenta del restaurante
+  TRANSFERENCIA
 
   @@map("metodo_pago")
 }
@@ -130,6 +134,10 @@ model Usuario {
   entregas       Entrega[]
   historial      HistorialEstadoPedido[]
   movimientos    MovimientoInventario[]
+  cobros         Pago[]
+  cajasAbiertas  Caja[]                  @relation("CajaAbiertaPor")
+  cajasCerradas  Caja[]                  @relation("CajaCerradaPor")
+  movimientosCaja MovimientoCaja[]
 
   @@map("usuarios")
 }
@@ -330,14 +338,73 @@ model Pago {
   /// Identificador en la pasarela: descarta las notificaciones repetidas de su webhook
   referenciaExterna String?    @map("referencia_externa")
   urlPago           String?    @map("url_pago")
+  /// Turno de caja en que se cobró. Vacío si se cobró antes de que existiera la caja
+  cajaId            String?    @map("caja_id") @db.Uuid
+  /// Quién recibió el dinero. Vacío en los pagos en línea
+  cobradoPorId      String?    @map("cobrado_por_id") @db.Uuid
   creadoEn          DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn     DateTime   @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  pedido     Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  caja       Caja?    @relation(fields: [cajaId], references: [id])
+  cobradoPor Usuario? @relation(fields: [cobradoPorId], references: [id])
 
   @@unique([proveedor, referenciaExterna])
   @@index([pedidoId])
+  @@index([cajaId])
   @@map("pagos")
+}
+
+// ---------- Caja ----------
+
+/// Un turno de caja: se abre con la base en efectivo y se cierra contando el efectivo (arqueo).
+/// Solo puede haber una abierta a la vez: lo asegura un índice único parcial de la migración.
+model Caja {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Efectivo con que se abre, para dar vueltas
+  base             Int
+  abiertaPorId     String    @map("abierta_por_id") @db.Uuid
+  abiertaEn        DateTime  @default(now()) @map("abierta_en") @db.Timestamptz(3)
+  cerradaPorId     String?   @map("cerrada_por_id") @db.Uuid
+  cerradaEn        DateTime? @map("cerrada_en") @db.Timestamptz(3)
+  /// Al cerrar: el efectivo que debía haber y el que se contó. La diferencia es sobrante o faltante
+  efectivoEsperado Int?      @map("efectivo_esperado")
+  efectivoContado  Int?      @map("efectivo_contado")
+  notasCierre      String?   @map("notas_cierre")
+
+  abiertaPor  Usuario          @relation("CajaAbiertaPor", fields: [abiertaPorId], references: [id])
+  cerradaPor  Usuario?         @relation("CajaCerradaPor", fields: [cerradaPorId], references: [id])
+  pagos       Pago[]
+  movimientos MovimientoCaja[]
+
+  @@index([abiertaEn])
+  @@map("cajas")
+}
+
+enum TipoMovimientoCaja {
+  /// Dinero que entra y no es una venta, por ejemplo más sencillo para vueltas
+  ENTRADA
+  /// Dinero que sale, por ejemplo un gasto o un pago a un proveedor
+  SALIDA
+
+  @@map("tipo_movimiento_caja")
+}
+
+/// Entrada o salida de efectivo que no es una venta
+model MovimientoCaja {
+  id        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cajaId    String             @map("caja_id") @db.Uuid
+  tipo      TipoMovimientoCaja
+  monto     Int
+  motivo    String
+  usuarioId String             @map("usuario_id") @db.Uuid
+  creadoEn  DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  caja    Caja    @relation(fields: [cajaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([cajaId])
+  @@map("movimientos_caja")
 }
 
 // ---------- Chatbot de WhatsApp ----------

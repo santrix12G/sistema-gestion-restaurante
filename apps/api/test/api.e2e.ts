@@ -28,6 +28,8 @@ beforeAll(async () => {
     expect(res.status).toBe(200);
     tokens[rol] = res.body.token;
   }
+  // Para cobrar hace falta una caja abierta. Si ya hay una, la API responde 409 y se usa esa
+  await api().post('/api/caja/abrir').set(como('admin')).send({ base: 0 });
 });
 
 afterAll(() => app.close());
@@ -403,5 +405,91 @@ describe('estadísticas', () => {
     expect((await periodo('?desde=2020-01-01&hasta=2999-01-01')).status).toBe(400);
     expect((await periodo('?desde=2020-01-01&hasta=2021-12-31')).status).toBe(400);
     expect((await periodo('')).status).toBe(400);
+  });
+});
+
+describe('caja', () => {
+  const caja = () => api().get('/api/caja/actual').set(como('admin'));
+  const cerrarCaja = (efectivoContado: number, notas?: string) => api().post('/api/caja/cerrar').set(como('admin')).send({ efectivoContado, notas });
+  const movimiento = (tipo: string, monto: number, motivo = 'Prueba') => api().post('/api/caja/movimientos').set(como('admin')).send({ tipo, monto, motivo });
+
+  async function nuevoPedido(cantidad = 1) {
+    const { body: mesas } = await api().get('/api/mesas').set(como('mesero'));
+    const gaseosa = await producto('Gaseosa');
+    return (await api().post('/api/pedidos').set(como('mesero')).send({ tipo: 'MESA', mesaId: mesas[0].id, items: [{ productoId: gaseosa.id, cantidad }] })).body;
+  }
+  const cobrar = (id: string, metodo?: string) => api().patch(`/api/pedidos/${id}/estado`).set(como('mesero')).send({ estado: 'PAGADO', metodo });
+
+  it('solo el administrador maneja la caja; el personal ve si está abierta', async () => {
+    expect((await api().post('/api/caja/abrir').set(como('mesero')).send({ base: 0 })).status).toBe(403);
+    expect((await api().get('/api/caja/actual').set(como('repartidor'))).status).toBe(403);
+    const estado = await api().get('/api/caja/estado').set(como('mesero'));
+    expect(estado.status).toBe(200);
+    expect(estado.body.abierta).toBe(true);
+  });
+
+  it('sin caja abierta no se puede cobrar, pero sí cancelar', async () => {
+    const { body } = await caja();
+    expect((await cerrarCaja(body.caja.efectivoEsperado)).body.diferencia).toBe(0);
+    expect((await api().get('/api/caja/estado').set(como('mesero'))).body.abierta).toBe(false);
+    expect((await caja()).body).toEqual({ caja: null });
+
+    const pedido = await nuevoPedido();
+    const res = await cobrar(pedido.id);
+    expect(res.status).toBe(409);
+    expect(res.body.mensaje).toMatch(/caja está cerrada/);
+    const { body: activos } = await api().get('/api/pedidos').set(como('mesero'));
+    expect(activos.map((p: { id: string }) => p.id)).toContain(pedido.id);
+    expect((await api().patch(`/api/pedidos/${pedido.id}/estado`).set(como('mesero')).send({ estado: 'CANCELADO' })).status).toBe(200);
+    expect((await movimiento('ENTRADA', 1000)).status).toBe(409);
+  });
+
+  it('lleva los cobros por método, las entradas y salidas, y cuadra el arqueo al cerrar', async () => {
+    const previa = (await caja()).body.caja;
+    if (previa) await cerrarCaja(previa.efectivoEsperado);
+    const abierta = await api().post('/api/caja/abrir').set(como('admin')).send({ base: 100000 });
+    expect(abierta.status).toBe(201);
+    expect((await api().post('/api/caja/abrir').set(como('admin')).send({ base: 0 })).status).toBe(409);
+
+    const enEfectivo = await nuevoPedido(2);
+    const conTarjeta = await nuevoPedido(3);
+    const sinMetodo = await nuevoPedido(1);
+    expect((await cobrar(enEfectivo.id, 'EFECTIVO')).status).toBe(200);
+    expect((await cobrar(conTarjeta.id, 'TARJETA')).status).toBe(200);
+    // Las versiones anteriores de la app no mandan el método: se toma efectivo
+    expect((await cobrar(sinMetodo.id)).status).toBe(200);
+    const otro = await nuevoPedido();
+    expect((await cobrar(otro.id, 'BITCOIN')).status).toBe(400);
+    await api().patch(`/api/pedidos/${otro.id}/estado`).set(como('mesero')).send({ estado: 'CANCELADO' });
+
+    expect((await movimiento('ENTRADA', 20000, 'Sencillo para vueltas')).status).toBe(201);
+    expect((await movimiento('SALIDA', 5000, 'Compra de hielo')).status).toBe(201);
+    expect((await movimiento('SALIDA', 0)).status).toBe(400);
+    expect((await movimiento('SALIDA', 10_000_000)).status).toBe(409);
+    expect((await api().post('/api/caja/movimientos').set(como('admin')).send({ tipo: 'SALIDA', monto: 1000, motivo: '  ' })).status).toBe(400);
+
+    const { body } = await caja();
+    const efectivo = enEfectivo.total + sinMetodo.total;
+    expect(body.caja.base).toBe(100000);
+    expect(body.caja.porMetodo.find((m: { metodo: string }) => m.metodo === 'EFECTIVO')).toEqual({ metodo: 'EFECTIVO', pagos: 2, total: efectivo });
+    expect(body.caja.porMetodo.find((m: { metodo: string }) => m.metodo === 'TARJETA').total).toBe(conTarjeta.total);
+    expect(body.caja.vendido).toBe(efectivo + conTarjeta.total);
+    expect(body.caja.efectivoEsperado).toBe(100000 + efectivo + 20000 - 5000);
+    expect(body.caja.movimientos.map((m: { motivo: string }) => m.motivo)).toEqual(['Compra de hielo', 'Sencillo para vueltas']);
+    expect(body.caja.pagos[0]).toMatchObject({ numeroPedido: sinMetodo.numero, metodo: 'EFECTIVO', cobradoPor: { nombre: expect.any(String) } });
+
+    // Faltan mil pesos al contar
+    const cierre = await cerrarCaja(body.caja.efectivoEsperado - 1000, 'Faltó un billete');
+    expect(cierre.status).toBe(201);
+    expect(cierre.body).toMatchObject({ efectivoContado: body.caja.efectivoEsperado - 1000, diferencia: -1000, notasCierre: 'Faltó un billete' });
+    expect(cierre.body.cerradaEn).not.toBeNull();
+    expect((await cerrarCaja(0)).status).toBe(409);
+
+    const { body: historial } = await api().get('/api/caja/historial').set(como('admin'));
+    expect(historial[0]).toMatchObject({ id: abierta.body.id, diferencia: -1000, cobros: 3, movimientos: 2 });
+    expect((await api().get(`/api/caja/${abierta.body.id}`).set(como('admin'))).body.pagos).toHaveLength(3);
+
+    // Se deja abierta para las demás pruebas
+    await api().post('/api/caja/abrir').set(como('admin')).send({ base: 0 });
   });
 });

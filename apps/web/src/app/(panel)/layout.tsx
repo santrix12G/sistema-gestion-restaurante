@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, ChartColumn, CirclePlus, ClipboardList, LayoutGrid, LogOut, LucideIcon, Menu, Users, X } from 'lucide-react';
+import { BookOpen, ChartColumn, CirclePlus, ClipboardList, LayoutGrid, LogOut, LucideIcon, Menu, Users, Wallet, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
@@ -23,6 +23,7 @@ const GRUPOS: { titulo: string; opciones: Opcion[] }[] = [
     opciones: [
       { ruta: '/pedidos', texto: 'Pedidos', icono: ClipboardList, roles: ['ADMIN', 'MESERO', 'REPARTIDOR'] },
       { ruta: '/pedidos/nuevo', texto: 'Nuevo pedido', icono: CirclePlus, roles: ['ADMIN', 'MESERO'] },
+      { ruta: '/caja', texto: 'Caja', icono: Wallet, roles: ['ADMIN'] },
     ],
   },
   {

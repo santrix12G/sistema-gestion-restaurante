@@ -1,9 +1,10 @@
 'use client';
 
-import { Bike, Check, CirclePlus, LucideIcon, Search, ShoppingBag, Store, X } from 'lucide-react';
+import { Bike, Check, CirclePlus, LucideIcon, Search, ShoppingBag, Store, TriangleAlert, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAvisos } from '@/components/avisos';
+import { DialogoCobro, METODOS } from '@/components/dialogo-cobro';
 import { Aviso, Boton, Cargando, Titulo, Vacio } from '@/components/ui';
 import { MINUTOS_ATENCION, MINUTOS_DEMORA, TarjetaPedido } from '@/components/tarjeta-pedido';
 import { llamar } from '@/lib/api';
@@ -13,7 +14,7 @@ import { destino, hora, NOMBRE_ESTADO, pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
 import { useSesion } from '@/lib/sesion';
 import { useTiempoReal } from '@/lib/tiempo-real';
-import { Pedido, UsuarioSesion } from '@/lib/tipos';
+import { EstadoCaja, MetodoCobro, Pedido, UsuarioSesion } from '@/lib/tipos';
 
 type Vista = 'activos' | 'cerrados';
 interface Columna {
@@ -60,6 +61,10 @@ export default function Pedidos() {
   useTiempoReal(recargar);
   const { cambiar, tomar, ocupado, error: errorCambio } = useCambiarEstado(recargar);
   const { avisar, confirmar } = useAvisos();
+  // Sin caja abierta no se puede cobrar: se avisa antes de que alguien lo intente
+  const { datos: caja, recargar: recargarCaja } = useDatos(() => llamar<EstadoCaja>('/caja/estado'), 60_000);
+  useTiempoReal(recargarCaja);
+  const [cobrando, setCobrando] = useState<Pedido>();
   const atiende = usuario?.rol === 'ADMIN' || usuario?.rol === 'MESERO';
 
   // Al cambiar de pestaña, carga la otra lista sin esperar a la consulta periódica
@@ -73,14 +78,12 @@ export default function Pedidos() {
   const hallados = enVista.filter((p) => coincide(p, consulta));
   const buscando = consulta.trim() !== '';
 
-  async function cobrar(p: Pedido) {
-    const pagadoEnLinea = p.pagos?.[0]?.estado === 'APROBADO';
-    const si = await confirmar({
-      titulo: `¿Marcar el pedido #${p.numero} como pagado?`,
-      detalle: pagadoEnLinea ? `Ya se pagó en línea: no cobres. Total ${pesos(p.total)}.` : `Cobra ${pesos(p.total)} antes de confirmar.`,
-      aceptar: 'Marcar pagado',
-    });
-    if (si && (await cambiar(p.id, 'PAGADO'))) avisar(`Pedido #${p.numero} pagado`);
+  async function cobrar(p: Pedido, metodo: MetodoCobro) {
+    setCobrando(undefined);
+    const enLinea = p.pagos?.[0]?.estado === 'APROBADO';
+    const como = enLinea ? 'en línea' : `con ${METODOS.find((m) => m.metodo === metodo)!.texto.toLowerCase()}`;
+    if (await cambiar(p.id, 'PAGADO', metodo)) avisar(`Pedido #${p.numero} pagado ${como}`);
+    else void recargarCaja();
   }
 
   async function cancelar(p: Pedido) {
@@ -103,7 +106,7 @@ export default function Pedidos() {
         )}
         {puedeCerrar(p, usuario) && (
           <>
-            <Boton variante="exito" className="flex-1" disabled={deshabilitado} onClick={() => cobrar(p)}>
+            <Boton variante="exito" className="flex-1" disabled={deshabilitado} onClick={() => setCobrando(p)}>
               <Check className="size-4" aria-hidden />
               {domicilio ? 'Entregado y pagado' : 'Pagado'}
             </Boton>
@@ -170,6 +173,22 @@ export default function Pedidos() {
         {vista === 'activos' && <LeyendaEspera />}
       </div>
       <div className="mb-4 space-y-2">
+        {caja && !caja.abierta && vista === 'activos' && (
+          <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden />
+            <strong>La caja está cerrada:</strong>
+            {usuario.rol === 'ADMIN' ? (
+              <>
+                no se puede cobrar hasta abrirla.
+                <Link href="/caja" className="font-semibold underline">
+                  Abrir caja
+                </Link>
+              </>
+            ) : (
+              'no se puede cobrar hasta que el administrador la abra.'
+            )}
+          </p>
+        )}
         <Aviso>{error}</Aviso>
         <Aviso>{errorCambio}</Aviso>
       </div>
@@ -201,6 +220,15 @@ export default function Pedidos() {
         </div>
       ) : (
         <Cerrados pedidos={hallados} buscando={buscando} />
+      )}
+      {cobrando && (
+        <DialogoCobro
+          pedido={cobrando}
+          cajaAbierta={caja?.abierta ?? true}
+          esAdmin={usuario.rol === 'ADMIN'}
+          alCobrar={(metodo) => cobrar(cobrando, metodo)}
+          alCerrar={() => setCobrando(undefined)}
+        />
       )}
     </>
   );
