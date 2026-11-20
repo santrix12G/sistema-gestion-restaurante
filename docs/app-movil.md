@@ -1,6 +1,6 @@
 # App móvil del personal
 
-Aplicación Android para meseros y repartidores, hecha con React Native y Expo (SDK 58). Los clientes no la usan, porque piden por el chatbot, y los cocineros tampoco. La administración del menú sigue en la web.
+Aplicación Android para meseros y repartidores, hecha con React Native y Expo (SDK 58). Los clientes no la usan, porque piden por el chatbot. La administración del menú sigue en la web.
 
 Usa la misma API, el mismo inicio de sesión y los mismos avisos en tiempo real que la web. El código está en `apps/mobile`.
 
@@ -63,17 +63,17 @@ Con una cuenta gratuita de [expo.dev](https://expo.dev):
 npx eas-cli@latest login
 ```
 
-```bash
-npx eas-cli@latest build:configure
-```
-
-En el `eas.json` que se crea, agrega al perfil `preview` la opción `"android": { "buildType": "apk" }` y la variable `EXPO_PUBLIC_API_URL` en `"env"`, con la dirección de Render. La app compilada no lee tu `.env` local de la misma forma. Luego:
+El archivo `apps/mobile/eas.json` ya está listo: el perfil `preview` genera un APK y le pone la dirección de la API en Render. La app compilada no lee tu `.env` local; si la API cambia de dirección, cámbiala en `eas.json`. Luego, en `apps/mobile`:
 
 ```bash
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-Al terminar, Expo da un enlace para descargar el APK e instalarlo en los celulares del personal.
+- La primera vez pregunta si crear el proyecto en Expo: responde que sí. Esto agrega el `projectId` en `app.json`; súbelo al repositorio.
+- También pregunta si generar el *keystore* (la firma de Android): responde que sí y deja que Expo lo guarde.
+- La compilación corre en los servidores de Expo y tarda entre 10 y 20 minutos. El plan gratis puede tener fila.
+
+Al terminar, Expo da un enlace y un código QR para descargar el APK. Ábrelo en el celular, permite instalar apps de origen desconocido si Android lo pide, e instálalo. Para una versión nueva, repite el comando e instala el APK encima.
 
 ## Revisar el código
 
