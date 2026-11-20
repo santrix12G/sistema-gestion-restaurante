@@ -4,12 +4,13 @@ import { Minus, Plus, Search, ShoppingBag, Store, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useAvisos } from '@/components/avisos';
+import { Comanda, useImpresion } from '@/components/impresion';
 import { Aviso, Boton, Campo, Cargando, Titulo, Vacio } from '@/components/ui';
 import { llamar, mensajeDeError } from '@/lib/api';
 import { normalizar } from '@/lib/buscar';
 import { NOMBRE_TIPO_MESA, pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
-import { Mesa, Producto, TipoMesa } from '@/lib/tipos';
+import { Mesa, Pedido, Producto, TipoMesa } from '@/lib/tipos';
 
 const TIPOS_MESA: TipoMesa[] = ['NORMAL', 'LARGA', 'AFUERA'];
 const MAX_CANTIDAD = 50;
@@ -25,7 +26,8 @@ const nuevaClave = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${M
 
 export default function NuevoPedido() {
   const router = useRouter();
-  const { avisar } = useAvisos();
+  const { avisar, confirmar } = useAvisos();
+  const { imprimir } = useImpresion();
   const { datos: productos, error: errorProductos } = useDatos(() => llamar<Producto[]>('/catalogo/productos'));
   const { datos: mesas, error: errorMesas } = useDatos(() => llamar<Mesa[]>('/mesas'));
 
@@ -77,7 +79,7 @@ export default function NuevoPedido() {
 
     setEnviando(true);
     try {
-      const pedido = await llamar<{ numero: number }>('/pedidos', {
+      const pedido = await llamar<Pedido>('/pedidos', {
         metodo: 'POST',
         encabezados: { 'Idempotency-Key': clave },
         cuerpo: {
@@ -89,6 +91,14 @@ export default function NuevoPedido() {
       });
       setClave(nuevaClave());
       avisar(`Pedido #${pedido.numero} registrado`);
+      // La cocina necesita la comanda en papel: se ofrece apenas se registra
+      const conComanda = await confirmar({
+        titulo: `Pedido #${pedido.numero} registrado`,
+        detalle: '¿Imprimir la comanda para la cocina?',
+        aceptar: 'Imprimir comanda',
+        cancelar: 'Ahora no',
+      });
+      if (conComanda) await imprimir(<Comanda pedido={pedido} />);
       router.push('/pedidos');
     } catch (e) {
       setError(mensajeDeError(e));
