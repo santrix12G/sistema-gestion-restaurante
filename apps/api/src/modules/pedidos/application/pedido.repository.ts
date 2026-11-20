@@ -1,4 +1,5 @@
 // Puerto de persistencia: los casos de uso dependen de esta interfaz, no de Prisma.
+import { MetodoCobro } from '../../caja';
 import { PedidoEvento } from '../../../shared/eventos';
 import { TipoMesa } from '../domain/mesa';
 import { Alcance, EstadoCierre, EstadoPedido, LineaCalculada, TipoPedido } from '../domain/pedido';
@@ -59,7 +60,11 @@ export interface PedidoRepository {
    */
   listar(filtro: { estados: EstadoPedido[]; alcance: Alcance; cerradosDesde?: Date }): Promise<PedidoVista[]>;
   /** Cierra el pedido solo si sigue activo. Devuelve false si otro usuario lo cerró antes. */
-  cerrar(id: string, hasta: EstadoCierre, usuarioId: string): Promise<boolean>;
+  /**
+   * Cierra el pedido si sigue activo. Al cobrarlo registra el pago en la caja abierta con su método,
+   * salvo que ya se haya pagado en línea. Sin caja abierta no se puede cobrar.
+   */
+  cerrar(id: string, hasta: EstadoCierre, usuarioId: string, metodo: MetodoCobro): Promise<boolean>;
   /** Asigna el domicilio al repartidor solo si nadie lo ha tomado. Devuelve false si otro lo tomó antes. */
   tomarDomicilio(id: string, repartidorId: string): Promise<boolean>;
 }

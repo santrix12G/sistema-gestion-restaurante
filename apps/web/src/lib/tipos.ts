@@ -136,3 +136,45 @@ export interface TiempoServicio {
   demorados: number;
   porcentajeDemorados: number;
 }
+
+/** Con qué pagó el cliente. El pago en línea (ONLINE) llega solo por Mercado Pago */
+export type MetodoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'ONLINE';
+export type MetodoCobro = Exclude<MetodoPago, 'ONLINE'>;
+
+/** Lo que todo el personal sabe de la caja: si se puede cobrar */
+export interface EstadoCaja {
+  abierta: boolean;
+  abiertaEn: string | null;
+  abiertaPor: string | null;
+}
+
+/** Un turno de caja con sus cuentas. `diferencia` es positiva si sobra efectivo y negativa si falta */
+export interface Caja {
+  id: string;
+  abiertaEn: string;
+  abiertaPor: { id: string; nombre: string };
+  cerradaEn: string | null;
+  cerradaPor: { id: string; nombre: string } | null;
+  notasCierre: string | null;
+  base: number;
+  porMetodo: { metodo: MetodoPago; pagos: number; total: number }[];
+  vendido: number;
+  pagos: number;
+  entradas: number;
+  salidas: number;
+  efectivoEsperado: number;
+  efectivoContado: number | null;
+  diferencia: number | null;
+}
+
+export interface CajaAbierta extends Omit<Caja, 'pagos'> {
+  movimientos: { id: string; tipo: 'ENTRADA' | 'SALIDA'; monto: number; motivo: string; creadoEn: string; usuario: { nombre: string } }[];
+  pagos: { id: string; metodo: MetodoPago; monto: number; numeroPedido: number; cobradoEn: string; cobradoPor: { nombre: string } | null }[];
+  /** Solo en la caja abierta: lo que falta por cobrar */
+  pedidosAbiertos?: { pedidos: number; total: number };
+}
+
+export interface CajaCerrada extends Caja {
+  movimientos: number;
+  cobros: number;
+}

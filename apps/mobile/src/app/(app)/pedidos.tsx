@@ -5,7 +5,7 @@ import { Historial } from '@/components/historial';
 import { TarjetaPedido } from '@/components/tarjeta-pedido';
 import { Aviso, Boton, Buscador, Cargando, COLOR, estilos, Seccion, Segmento, Vacio } from '@/components/ui';
 import { coincide } from '@/lib/buscar';
-import { avisar, confirmar } from '@/lib/confirmar';
+import { avisar, confirmar, elegirMetodo, MetodoCobro } from '@/lib/confirmar';
 import { destino, pesos } from '@/lib/formato';
 import { cerrarPedido, usePedidos } from '@/lib/pedidos';
 import { useUsuario } from '@/lib/sesion';
@@ -34,13 +34,14 @@ export default function Pedidos() {
   const deOtros = hallados.filter((p) => !mios.includes(p));
 
   async function cerrar(pedido: Pedido, estado: 'PAGADO' | 'CANCELADO') {
-    const seguro =
-      estado === 'PAGADO'
-        ? await confirmar(`Cobrar pedido #${pedido.numero}`, `${destino(pedido)}. ¿Ya pagó ${pesos(pedido.total)}?`, 'Sí, pagado')
-        : await confirmar(`Cancelar pedido #${pedido.numero}`, `${destino(pedido)}. Esta acción no se puede deshacer.`, 'Cancelar pedido');
-    if (!seguro) return;
+    let metodo: MetodoCobro | undefined;
+    if (estado === 'PAGADO') {
+      const elegido = await elegirMetodo(`Cobrar pedido #${pedido.numero}`, `${destino(pedido)}. Total ${pesos(pedido.total)}. ¿Con qué pagó?`);
+      if (!elegido) return;
+      metodo = elegido;
+    } else if (!(await confirmar(`Cancelar pedido #${pedido.numero}`, `${destino(pedido)}. Esta acción no se puede deshacer.`, 'Cancelar pedido'))) return;
     setOcupado(pedido.id);
-    const fallo = await cerrarPedido(pedido, estado);
+    const fallo = await cerrarPedido(pedido, estado, metodo);
     if (fallo) avisar('No se pudo cambiar el pedido', fallo);
     await cargar();
     setOcupado(null);

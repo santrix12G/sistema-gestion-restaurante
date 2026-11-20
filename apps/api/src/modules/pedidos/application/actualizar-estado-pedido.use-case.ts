@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { MetodoCobro } from '../../caja';
 import { UsuarioActual } from '../../identidad';
 import { DomainError } from '../../../shared/domain-error';
 import { BusEventos } from '../../../shared/eventos';
@@ -12,7 +13,7 @@ const paraPermisos = (p: PedidoVista): PedidoParaPermisos => ({
   repartidorId: p.entrega?.repartidor?.id ?? null,
 });
 
-/** Marca un pedido como pagado o cancelado, y saca domicilios a reparto. */
+/** Marca un pedido como pagado o cancelado, y saca domicilios a reparto. Cobrar deja el pago en la caja abierta. */
 @Injectable()
 export class ActualizarEstadoPedidoUseCase {
   constructor(
@@ -20,11 +21,11 @@ export class ActualizarEstadoPedidoUseCase {
     private readonly bus: BusEventos,
   ) {}
 
-  async ejecutar(id: string, nuevo: EstadoCierre, usuario: UsuarioActual): Promise<PedidoVista> {
+  async ejecutar(id: string, nuevo: EstadoCierre, usuario: UsuarioActual, metodo: MetodoCobro = 'EFECTIVO'): Promise<PedidoVista> {
     const pedido = await this.obtener(id);
     validarCierre(paraPermisos(pedido), nuevo, usuario.rol, usuario.id);
     // Si dos personas actúan a la vez sobre el mismo pedido, solo gana la primera
-    if (!(await this.pedidos.cerrar(id, nuevo, usuario.id))) throw new DomainError('conflicto', 'Otra persona cambió este pedido. Actualiza la pantalla');
+    if (!(await this.pedidos.cerrar(id, nuevo, usuario.id, metodo))) throw new DomainError('conflicto', 'Otra persona cambió este pedido. Actualiza la pantalla');
 
     const actualizado = await this.obtener(id);
     this.bus.publicar('pedido.estado_cambiado', { ...aEvento(actualizado), estadoAnterior: pedido.estado });

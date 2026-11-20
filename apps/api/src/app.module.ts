@@ -3,6 +3,7 @@ import { CatalogoModule } from './modules/catalogo';
 import { ChatbotModule } from './modules/chatbot';
 import { ClientesModule } from './modules/clientes';
 import { IdentidadModule } from './modules/identidad';
+import { CajaModule } from './modules/caja';
 import { PagosModule } from './modules/pagos';
 import { PedidosModule } from './modules/pedidos';
 import { TiempoRealModule } from './modules/tiempo-real';
@@ -11,7 +12,7 @@ import { SharedModule } from './shared/shared.module';
 
 // El monolito: cada módulo es una parte del negocio y solo expone lo que está en su index.ts
 @Module({
-  imports: [SharedModule, IdentidadModule, CatalogoModule, ClientesModule, PedidosModule, PagosModule, TiempoRealModule, ChatbotModule],
+  imports: [SharedModule, IdentidadModule, CatalogoModule, ClientesModule, PedidosModule, PagosModule, CajaModule, TiempoRealModule, ChatbotModule],
   controllers: [SaludController],
 })
 export class AppModule {}

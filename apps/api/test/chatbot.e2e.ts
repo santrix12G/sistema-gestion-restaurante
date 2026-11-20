@@ -90,6 +90,8 @@ beforeAll(async () => {
     const res = await api().post('/api/auth/login').send({ email: `${rol}@restaurante.test`, password });
     tokens[rol] = res.body.token;
   }
+  // Para cobrar hace falta una caja abierta. Si ya hay una, la API responde 409 y se usa esa
+  await api().post('/api/caja/abrir').set(como('admin')).send({ base: 0 });
 });
 
 afterAll(() => app.close());

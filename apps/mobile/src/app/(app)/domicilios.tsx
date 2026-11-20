@@ -5,7 +5,7 @@ import { Historial } from '@/components/historial';
 import { TarjetaPedido } from '@/components/tarjeta-pedido';
 import { Aviso, Boton, Buscador, Cargando, COLOR, estilos, Seccion, Segmento, Vacio } from '@/components/ui';
 import { coincide } from '@/lib/buscar';
-import { avisar, confirmar } from '@/lib/confirmar';
+import { avisar, confirmar, elegirMetodo, MetodoCobro } from '@/lib/confirmar';
 import { pesos } from '@/lib/formato';
 import { cerrarPedido, tomarDomicilio, usePedidos } from '@/lib/pedidos';
 import { useUsuario } from '@/lib/sesion';
@@ -47,16 +47,23 @@ export default function Domicilios() {
   }, [pedidos]);
 
   async function actuar(pedido: Pedido, accion: 'TOMAR' | 'PAGADO' | 'CANCELADO') {
+    let metodo: MetodoCobro | undefined;
     if (accion === 'PAGADO') {
-      const seguro = await confirmar(`Entregar pedido #${pedido.numero}`, `¿Ya lo entregaste y cobraste ${pesos(pedido.total)}?`, 'Sí, entregado');
-      if (!seguro) return;
+      // Si ya se pagó en línea no hay nada que cobrar: solo se confirma la entrega
+      if (pedido.pagos?.[0]?.estado === 'APROBADO') {
+        if (!(await confirmar(`Entregar pedido #${pedido.numero}`, 'Ya se pagó en línea: no cobres. ¿Ya lo entregaste?', 'Sí, entregado'))) return;
+      } else {
+        const elegido = await elegirMetodo(`Entregar pedido #${pedido.numero}`, `Cobra ${pesos(pedido.total)}. ¿Con qué pagó el cliente?`);
+        if (!elegido) return;
+        metodo = elegido;
+      }
     }
     if (accion === 'CANCELADO') {
       const seguro = await confirmar(`Cancelar pedido #${pedido.numero}`, 'El cliente no lo recibió. Esta acción no se puede deshacer.', 'Cancelar pedido');
       if (!seguro) return;
     }
     setOcupado(pedido.id);
-    const fallo = accion === 'TOMAR' ? await tomarDomicilio(pedido) : await cerrarPedido(pedido, accion);
+    const fallo = accion === 'TOMAR' ? await tomarDomicilio(pedido) : await cerrarPedido(pedido, accion, metodo);
     if (fallo) avisar('No se pudo cambiar el domicilio', fallo);
     await cargar();
     setOcupado(null);

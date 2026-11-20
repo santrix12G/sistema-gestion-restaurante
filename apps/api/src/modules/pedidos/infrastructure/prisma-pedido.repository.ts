@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { DomainError } from '../../../shared/domain-error';
 import { PrismaService } from '../../../shared/prisma.service';
+import { MetodoCobro } from '../../caja';
 import { Alcance, EstadoCierre, EstadoPedido } from '../domain/pedido';
 import { NuevoPedido, PedidoRepository, PedidoVista } from '../application/pedido.repository';
 
@@ -101,16 +103,31 @@ export class PrismaPedidoRepository implements PedidoRepository {
     });
   }
 
-  async cerrar(id: string, hasta: EstadoCierre, usuarioId: string): Promise<boolean> {
+  async cerrar(id: string, hasta: EstadoCierre, usuarioId: string, metodo: MetodoCobro): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.pedido.updateMany({ where: { id, estado: 'ACTIVO' }, data: { estado: hasta } });
       if (count === 0) return false;
+      if (hasta === 'PAGADO') await this.registrarCobro(tx, id, usuarioId, metodo);
       await tx.historialEstadoPedido.create({ data: { pedidoId: id, estadoAntes: 'ACTIVO', estadoNuevo: hasta, usuarioId } });
       // La entrega de un domicilio sigue al pedido: pagado es entregado; cancelado en camino es una entrega fallida
       if (hasta === 'PAGADO') await tx.entrega.updateMany({ where: { pedidoId: id }, data: { estado: 'ENTREGADA', entregadaEn: new Date() } });
       else await tx.entrega.updateMany({ where: { pedidoId: id, repartidorId: { not: null } }, data: { estado: 'FALLIDA' } });
       return true;
     });
+  }
+
+  /** Si lanza un error, la transacción se deshace y el pedido sigue activo */
+  private async registrarCobro(tx: Prisma.TransactionClient, pedidoId: string, usuarioId: string, metodo: MetodoCobro) {
+    const caja = await tx.caja.findFirst({ where: { cerradaEn: null }, select: { id: true } });
+    const enLinea = await tx.pago.findFirst({ where: { pedidoId, metodo: 'ONLINE', estado: 'APROBADO' }, select: { id: true, cajaId: true } });
+    if (enLinea) {
+      // Ya se pagó en línea: no entra dinero, pero la venta queda en el turno en que se entregó
+      if (caja && !enLinea.cajaId) await tx.pago.update({ where: { id: enLinea.id }, data: { cajaId: caja.id } });
+      return;
+    }
+    if (!caja) throw new DomainError('conflicto', 'La caja está cerrada. El administrador debe abrirla para poder cobrar');
+    const { total } = await tx.pedido.findUniqueOrThrow({ where: { id: pedidoId }, select: { total: true } });
+    await tx.pago.create({ data: { pedidoId, metodo, estado: 'APROBADO', monto: total, cajaId: caja.id, cobradoPorId: usuarioId } });
   }
 
   async tomarDomicilio(id: string, repartidorId: string): Promise<boolean> {
