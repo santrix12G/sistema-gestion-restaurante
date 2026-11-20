@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeftRight, Banknote, CreditCard, LucideIcon, TriangleAlert } from 'lucide-react';
+import { ArrowLeftRight, Banknote, CreditCard, LucideIcon, Printer, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Boton } from '@/components/ui';
@@ -25,8 +25,26 @@ interface Props {
   /** Si es false, solo se puede cerrar un pedido que ya se pagó en línea */
   cajaAbierta: boolean;
   esAdmin: boolean;
-  alCobrar: (metodo: MetodoCobro) => void;
+  /** `recibido` es con cuánto pagó en efectivo, si se escribió. `imprimir` pide el tiquete del cliente */
+  alCobrar: (metodo: MetodoCobro, opciones: { recibido?: number; imprimir: boolean }) => void;
   alCerrar: () => void;
+}
+
+/** Si se imprime el tiquete al cobrar. Se recuerda en este navegador: cada caja tiene o no impresora */
+const CLAVE_IMPRIMIR = 'imprimir-tiquete-al-cobrar';
+function leerPreferencia() {
+  try {
+    return localStorage.getItem(CLAVE_IMPRIMIR) === 'si';
+  } catch {
+    return false;
+  }
+}
+function guardarPreferencia(si: boolean) {
+  try {
+    localStorage.setItem(CLAVE_IMPRIMIR, si ? 'si' : 'no');
+  } catch {
+    // Sin almacenamiento (navegación privada) solo no se recuerda
+  }
 }
 
 /** Cobrar un pedido: con qué paga el cliente y, en efectivo, cuánto entrega y cuánto se le devuelve. */
@@ -34,6 +52,7 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
   const pagadoEnLinea = pedido.pagos?.[0]?.estado === 'APROBADO';
   const [metodo, setMetodo] = useState<MetodoCobro>('EFECTIVO');
   const [recibido, setRecibido] = useState('');
+  const [imprimir, setImprimir] = useState(leerPreferencia);
   const primerBoton = useRef<HTMLButtonElement>(null);
   const cerrarRef = useRef(alCerrar);
   cerrarRef.current = alCerrar;
@@ -52,7 +71,9 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
 
   function enviar(e: FormEvent) {
     e.preventDefault();
-    if (!falta && !sinCaja) alCobrar(metodo);
+    if (falta || sinCaja) return;
+    guardarPreferencia(imprimir);
+    alCobrar(metodo, { recibido: metodo === 'EFECTIVO' && monto > 0 ? monto : undefined, imprimir });
   }
 
   return (
@@ -152,6 +173,14 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
               </div>
             )}
           </>
+        )}
+
+        {!sinCaja && (
+          <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-stone-700">
+            <input type="checkbox" checked={imprimir} onChange={(e) => setImprimir(e.target.checked)} className="size-4 accent-marca-600" />
+            <Printer className="size-4 text-stone-500" aria-hidden />
+            Imprimir el tiquete del cliente
+          </label>
         )}
 
         <div className="mt-6 flex justify-end gap-2">

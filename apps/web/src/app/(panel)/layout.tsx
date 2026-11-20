@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
 import { ProveedorAvisos } from '@/components/avisos';
+import { ProveedorImpresion } from '@/components/impresion';
 import { Marca } from '@/components/marca';
 import { useSesion } from '@/lib/sesion';
 import { Rol, UsuarioSesion } from '@/lib/tipos';
@@ -66,75 +67,77 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
   if (!usuario) return null;
 
   return (
-    <ProveedorAvisos>
-      <div className="min-h-screen lg:pl-64">
-        {/* Barra superior, solo en pantallas pequeñas */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:hidden">
-          <Marca />
-          <button
-            onClick={() => setAbierto(true)}
-            className="rounded-lg p-2 text-stone-700 hover:bg-stone-100"
-            aria-label="Abrir el menú"
-            aria-expanded={abierto}
-            aria-controls="menu-lateral"
-          >
-            <Menu className="size-6" aria-hidden />
-          </button>
-        </header>
-
-        {abierto && <div className="fixed inset-0 z-30 bg-stone-900/40 lg:hidden" onClick={() => setAbierto(false)} aria-hidden />}
-
-        <aside
-          id="menu-lateral"
-          className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-stone-200 bg-white transition-transform lg:translate-x-0 ${
-            abierto ? 'translate-x-0 shadow-xl' : '-translate-x-full'
-          }`}
-        >
-          <div className="flex items-center justify-between px-5 py-5">
-            <Link href="/" className="min-w-0">
-              <Marca />
-            </Link>
-            <button onClick={() => setAbierto(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 lg:hidden" aria-label="Cerrar el menú">
-              <X className="size-5" aria-hidden />
+    <ProveedorImpresion>
+      <ProveedorAvisos>
+        <div className="min-h-screen lg:pl-64">
+          {/* Barra superior, solo en pantallas pequeñas */}
+          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:hidden">
+            <Marca />
+            <button
+              onClick={() => setAbierto(true)}
+              className="rounded-lg p-2 text-stone-700 hover:bg-stone-100"
+              aria-label="Abrir el menú"
+              aria-expanded={abierto}
+              aria-controls="menu-lateral"
+            >
+              <Menu className="size-6" aria-hidden />
             </button>
-          </div>
-          <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2" aria-label="Menú principal">
-            {GRUPOS.map((g) => {
-              const opciones = g.opciones.filter((o) => o.roles.includes(usuario.rol));
-              if (opciones.length === 0) return null;
-              return (
-                <div key={g.titulo}>
-                  <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-400">{g.titulo}</p>
-                  <ul className="space-y-0.5">
-                    {opciones.map((o) => {
-                      const activa = ruta === o.ruta;
-                      const Icono = o.icono;
-                      return (
-                        <li key={o.ruta}>
-                          <Link
-                            href={o.ruta}
-                            aria-current={activa ? 'page' : undefined}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                              activa ? 'bg-marca-50 text-marca-700' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
-                            }`}
-                          >
-                            <Icono className={`size-[18px] ${activa ? 'text-marca-600' : 'text-stone-400'}`} aria-hidden />
-                            {o.texto}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            })}
-          </nav>
-          <TarjetaUsuario usuario={usuario} salir={salir} />
-        </aside>
+          </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
-      </div>
-    </ProveedorAvisos>
+          {abierto && <div className="fixed inset-0 z-30 bg-stone-900/40 lg:hidden" onClick={() => setAbierto(false)} aria-hidden />}
+
+          <aside
+            id="menu-lateral"
+            className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-stone-200 bg-white transition-transform lg:translate-x-0 ${
+              abierto ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+            }`}
+          >
+            <div className="flex items-center justify-between px-5 py-5">
+              <Link href="/" className="min-w-0">
+                <Marca />
+              </Link>
+              <button onClick={() => setAbierto(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 lg:hidden" aria-label="Cerrar el menú">
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
+            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2" aria-label="Menú principal">
+              {GRUPOS.map((g) => {
+                const opciones = g.opciones.filter((o) => o.roles.includes(usuario.rol));
+                if (opciones.length === 0) return null;
+                return (
+                  <div key={g.titulo}>
+                    <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-400">{g.titulo}</p>
+                    <ul className="space-y-0.5">
+                      {opciones.map((o) => {
+                        const activa = ruta === o.ruta;
+                        const Icono = o.icono;
+                        return (
+                          <li key={o.ruta}>
+                            <Link
+                              href={o.ruta}
+                              aria-current={activa ? 'page' : undefined}
+                              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                activa ? 'bg-marca-50 text-marca-700' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+                              }`}
+                            >
+                              <Icono className={`size-[18px] ${activa ? 'text-marca-600' : 'text-stone-400'}`} aria-hidden />
+                              {o.texto}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </nav>
+            <TarjetaUsuario usuario={usuario} salir={salir} />
+          </aside>
+
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        </div>
+      </ProveedorAvisos>
+    </ProveedorImpresion>
   );
 }
 

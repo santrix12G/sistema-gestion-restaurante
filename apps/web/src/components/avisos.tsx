@@ -16,6 +16,8 @@ interface Confirmacion {
   detalle?: string;
   /** Texto del botón que acepta, por ejemplo "Cobrar" o "Cancelar pedido" */
   aceptar: string;
+  /** Texto del botón que no hace nada. Por defecto "Volver" */
+  cancelar?: string;
   peligro?: boolean;
 }
 
@@ -111,7 +113,7 @@ function Dialogo({ pregunta, responder }: { pregunta: Confirmacion; responder: (
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <Boton ref={volver} variante="secundario" onClick={() => responder(false)}>Volver</Boton>
+          <Boton ref={volver} variante="secundario" onClick={() => responder(false)}>{pregunta.cancelar ?? 'Volver'}</Boton>
           <Boton variante={pregunta.peligro ? 'peligroLleno' : 'primario'} onClick={() => responder(true)}>{pregunta.aceptar}</Boton>
         </div>
       </div>

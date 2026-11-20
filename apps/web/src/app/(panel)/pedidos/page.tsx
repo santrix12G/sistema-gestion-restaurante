@@ -1,10 +1,11 @@
 'use client';
 
-import { Bike, Check, CirclePlus, LucideIcon, Search, ShoppingBag, Store, TriangleAlert, X } from 'lucide-react';
+import { Bike, Check, ChefHat, CirclePlus, LucideIcon, ReceiptText, Search, ShoppingBag, Store, TriangleAlert, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAvisos } from '@/components/avisos';
 import { DialogoCobro, METODOS } from '@/components/dialogo-cobro';
+import { Comanda, TiqueteCliente, useImpresion } from '@/components/impresion';
 import { Aviso, Boton, Cargando, Titulo, Vacio } from '@/components/ui';
 import { MINUTOS_ATENCION, MINUTOS_DEMORA, TarjetaPedido } from '@/components/tarjeta-pedido';
 import { llamar } from '@/lib/api';
@@ -65,6 +66,7 @@ export default function Pedidos() {
   const { datos: caja, recargar: recargarCaja } = useDatos(() => llamar<EstadoCaja>('/caja/estado'), 60_000);
   useTiempoReal(recargarCaja);
   const [cobrando, setCobrando] = useState<Pedido>();
+  const { imprimir } = useImpresion();
   const atiende = usuario?.rol === 'ADMIN' || usuario?.rol === 'MESERO';
 
   // Al cambiar de pestaña, carga la otra lista sin esperar a la consulta periódica
@@ -78,12 +80,13 @@ export default function Pedidos() {
   const hallados = enVista.filter((p) => coincide(p, consulta));
   const buscando = consulta.trim() !== '';
 
-  async function cobrar(p: Pedido, metodo: MetodoCobro) {
+  async function cobrar(p: Pedido, metodo: MetodoCobro, { recibido, imprimir: conTiquete }: { recibido?: number; imprimir: boolean }) {
     setCobrando(undefined);
     const enLinea = p.pagos?.[0]?.estado === 'APROBADO';
     const como = enLinea ? 'en línea' : `con ${METODOS.find((m) => m.metodo === metodo)!.texto.toLowerCase()}`;
-    if (await cambiar(p.id, 'PAGADO', metodo)) avisar(`Pedido #${p.numero} pagado ${como}`);
-    else void recargarCaja();
+    if (!(await cambiar(p.id, 'PAGADO', metodo))) return void recargarCaja();
+    avisar(`Pedido #${p.numero} pagado ${como}`);
+    if (conTiquete) await imprimir(<TiqueteCliente pedido={p} cobro={{ metodo: enLinea ? 'ONLINE' : metodo, recibido }} />);
   }
 
   async function cancelar(p: Pedido) {
@@ -104,6 +107,7 @@ export default function Pedidos() {
             Llevar domicilio
           </Boton>
         )}
+        <BotonesImpresion pedido={p} conComanda={usuario.rol !== 'REPARTIDOR'} />
         {puedeCerrar(p, usuario) && (
           <>
             <Boton variante="exito" className="flex-1" disabled={deshabilitado} onClick={() => setCobrando(p)}>
@@ -226,7 +230,7 @@ export default function Pedidos() {
           pedido={cobrando}
           cajaAbierta={caja?.abierta ?? true}
           esAdmin={usuario.rol === 'ADMIN'}
-          alCobrar={(metodo) => cobrar(cobrando, metodo)}
+          alCobrar={(metodo, opciones) => cobrar(cobrando, metodo, opciones)}
           alCerrar={() => setCobrando(undefined)}
         />
       )}
@@ -262,7 +266,7 @@ function Cerrados({ pedidos, buscando }: { pedidos: Pedido[]; buscando: boolean 
                   <span className={`font-semibold ${p.estado === 'CANCELADO' ? 'text-stone-400 line-through' : ''}`}>{pesos(p.total)}</span>
                 </summary>
                 <div className="mt-3 max-w-md">
-                  <TarjetaPedido pedido={p} />
+                  <TarjetaPedido pedido={p} acciones={p.estado === 'PAGADO' && <BotonesImpresion pedido={p} conComanda={false} />} />
                 </div>
               </details>
             </li>
@@ -289,5 +293,24 @@ function LeyendaEspera() {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Imprimir la comanda para la cocina o el tiquete para el cliente */
+function BotonesImpresion({ pedido, conComanda }: { pedido: Pedido; conComanda: boolean }) {
+  const { imprimir } = useImpresion();
+  return (
+    <div className="flex w-full gap-2">
+      {conComanda && (
+        <Boton variante="secundario" className="flex-1 py-1.5 text-xs" onClick={() => imprimir(<Comanda pedido={pedido} />)} title="Imprimir la comanda para la cocina">
+          <ChefHat className="size-4" aria-hidden />
+          Comanda
+        </Boton>
+      )}
+      <Boton variante="secundario" className="flex-1 py-1.5 text-xs" onClick={() => imprimir(<TiqueteCliente pedido={pedido} />)} title="Imprimir el tiquete del cliente">
+        <ReceiptText className="size-4" aria-hidden />
+        Tiquete
+      </Boton>
+    </div>
   );
 }
