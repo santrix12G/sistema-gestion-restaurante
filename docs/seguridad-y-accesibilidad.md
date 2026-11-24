@@ -9,6 +9,7 @@ Qué se agregó, cómo se configura y cómo se compara con los requisitos que el
 | Captcha al iniciar sesión | Cloudflare Turnstile (si hay claves) | No: su ruta admite 5 intentos por minuto en vez de 10 |
 | Mantener la sesión abierta | Casilla «Mantener la sesión iniciada»: 30 días. Sin marcarla, la sesión dura hasta cerrar el navegador (máximo 12 horas) | Interruptor, encendido por defecto: 30 días guardada cifrada en el celular |
 | Recuperar contraseña | «¿Olvidaste tu contraseña?» → enlace por correo, válido 30 minutos y de un solo uso | El mismo enlace abre la página de la web |
+| Cambiar la propia contraseña | «Mi cuenta» (clic en tu nombre, abajo en el menú): pide la actual | Ícono de la persona, arriba a la derecha |
 | El administrador cambia la contraseña | Personal → Editar → Nueva contraseña | — |
 | Contraste alto | Botón en la barra de accesibilidad | Textos secundarios más oscuros (7:1) |
 | Tamaño de letra | A− / A+: 100 %, 115 %, 130 % y 150 % | Respeta el tamaño de letra del celular |
@@ -53,6 +54,21 @@ Render en su plan gratis bloquea el envío por SMTP, por eso se usa la API HTTP 
    - `APP_WEB_URL` con la dirección de la web, por ejemplo `https://tu-web.vercel.app`. Es la base del enlace del correo. Si falta, se usa la primera de `CORS_ORIGINS`.
 
 Sin `BREVO_API_KEY`, en tu PC el enlace aparece en el log de la API, lo que sirve para probar. En producción no se envía nada.
+
+#### Si el correo no llega
+
+La pantalla siempre dice «Si el correo está registrado, te enviamos un enlace…», aunque no se haya enviado, para no revelar qué cuentas existen. Para saber qué pasó, mira el log de la API en Render (**Logs**) justo después de pedirlo:
+
+| En el log | Qué significa |
+|---|---|
+| Al arrancar: `Sin BREVO_API_KEY: los correos de recuperación de contraseña no se envían` | Falta la clave de Brevo en Render |
+| No aparece ninguna línea `[Recuperacion]` | Esa cuenta no existe o está suspendida |
+| `No se pudo enviar el enlace … Brevo respondió 401` | La clave de Brevo está mal copiada |
+| `… Brevo respondió 400 … sender` | `CORREO_REMITENTE` no está verificado en Brevo → Senders |
+| `… Brevo respondió 403` | Brevo aún no activó el envío de tu cuenta: revisa el correo de Brevo o su panel |
+| `Brevo aceptó el correo (id …)` | Salió bien. Búscalo con ese id en Brevo → Transactional → Logs: si dice *bounced* o *blocked*, la dirección no existe o la rechazó; si dice *delivered*, revisa spam |
+
+El correo llega a la dirección con que se creó la cuenta. Si a un mesero se le registró un correo inventado (por ejemplo `@restaurante.test`), no le llegará nada: el administrador debe ponerle uno real en **Personal → Editar**, o asignarle una contraseña nueva desde ahí.
 
 ### 3. Web (Vercel)
 

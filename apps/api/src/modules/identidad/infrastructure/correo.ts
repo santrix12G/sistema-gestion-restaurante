@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { leerConfig } from '../../../shared/config';
 
 export interface MensajeCorreo {
@@ -15,9 +15,15 @@ export interface MensajeCorreo {
  * el mensaje se escribe en el log para poder probar el flujo.
  */
 @Injectable()
-export class EnviadorCorreo {
+export class EnviadorCorreo implements OnModuleInit {
   private readonly logger = new Logger('Correo');
   private readonly config = leerConfig().correo;
+
+  /** Al arrancar, el log de Render dice si los correos de recuperación pueden salir */
+  onModuleInit() {
+    if (this.config.brevoApiKey) this.logger.log(`Correo activo con Brevo, remitente ${this.config.remitente}`);
+    else if (process.env.NODE_ENV === 'production') this.logger.warn('Sin BREVO_API_KEY: los correos de recuperación de contraseña no se envían');
+  }
 
   async enviar(mensaje: MensajeCorreo) {
     if (!this.config.brevoApiKey) {
@@ -38,5 +44,8 @@ export class EnviadorCorreo {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`Brevo respondió ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    // Con este id se busca el envío en Brevo > Transactional > Logs (entregado, rebotado, bloqueado…)
+    const { messageId } = (await res.json().catch(() => ({}))) as { messageId?: string };
+    this.logger.log(`Brevo aceptó el correo${messageId ? ` (id ${messageId})` : ''}`);
   }
 }

@@ -43,6 +43,22 @@ class SolicitarRecuperacionDto {
   captcha?: string;
 }
 
+class CambiarContrasenaDto {
+  @IsString()
+  @MaxLength(MAX_CONTRASENA * 4)
+  actual!: string;
+
+  // La longitud y las reglas las valida el dominio
+  @IsString()
+  @MaxLength(MAX_CONTRASENA * 4)
+  nueva!: string;
+
+  /** Si la sesión de este equipo estaba guardada por 30 días, la nueva también */
+  @IsOptional()
+  @IsBoolean()
+  recordar?: boolean;
+}
+
 class RestablecerDto {
   @IsString()
   @Length(20, 200, { message: 'El enlace no es válido o ya venció. Pide uno nuevo' })
@@ -105,6 +121,15 @@ export class AutenticacionController {
   @HttpCode(200)
   restablecer(@Body() { token, password }: RestablecerDto) {
     return this.recuperacion.restablecer(token, password);
+  }
+
+  /** Cualquier usuario con sesión cambia su propia contraseña. Pocos intentos: exige la contraseña actual */
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('contrasena')
+  @HttpCode(200)
+  cambiarContrasena(@Usuario() usuario: UsuarioActual, @Body() { actual, nueva, recordar }: CambiarContrasenaDto) {
+    return this.autenticacion.cambiarContrasena(usuario.id, actual, nueva, recordar);
   }
 
   @Get('yo')
