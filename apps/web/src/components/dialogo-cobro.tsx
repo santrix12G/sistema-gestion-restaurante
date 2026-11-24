@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Boton } from '@/components/ui';
 import { pesos } from '@/lib/formato';
+import { regionActual, t } from '@/lib/i18n';
 import { MetodoCobro, Pedido } from '@/lib/tipos';
 
 export const METODOS: { metodo: MetodoCobro; texto: string; icono: LucideIcon }[] = [
@@ -88,7 +89,7 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="titulo-cobro" className="text-base font-semibold">
-            Cobrar pedido #{pedido.numero}
+            {t('Cobrar pedido #{numero}', { numero: pedido.numero })}
           </h2>
           <p className="text-2xl font-bold tabular-nums">{pesos(pedido.total)}</p>
         </div>
@@ -96,32 +97,32 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
         {pagadoEnLinea ? (
           <p className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
             <CreditCard className="size-4" aria-hidden />
-            Ya se pagó en línea: no cobres
+            {t('Ya se pagó en línea: no cobres')}
           </p>
         ) : sinCaja ? (
           <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <p className="flex items-center gap-2 font-semibold">
               <TriangleAlert className="size-4" aria-hidden />
-              La caja está cerrada
+              {t('La caja está cerrada')}
             </p>
             <p className="mt-1">
               {esAdmin ? (
                 <>
-                  Abre la caja en{' '}
+                  {t('Abre la caja en')}{' '}
                   <Link href="/caja" className="font-semibold underline">
-                    Caja
+                    {t('Caja')}
                   </Link>{' '}
-                  para poder cobrar.
+                  {t('para poder cobrar.')}
                 </>
               ) : (
-                'Pide al administrador que abra la caja para poder cobrar.'
+                t('Pide al administrador que abra la caja para poder cobrar.')
               )}
             </p>
           </div>
         ) : (
           <>
             <fieldset className="mt-4">
-              <legend className="mb-2 text-sm font-medium text-stone-700">¿Con qué paga?</legend>
+              <legend className="mb-2 text-sm font-medium text-stone-700">{t('¿Con qué paga?')}</legend>
               <div className="grid grid-cols-3 gap-2">
                 {METODOS.map(({ metodo: m, texto, icono: Icono }, i) => (
                   <button
@@ -135,7 +136,7 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
                     }`}
                   >
                     <Icono className="size-5" aria-hidden />
-                    {texto}
+                    {t(texto)}
                   </button>
                 ))}
               </div>
@@ -144,19 +145,19 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
             {metodo === 'EFECTIVO' && (
               <div className="mt-4 rounded-xl bg-stone-50 p-3">
                 <label className="block text-sm font-medium text-stone-700" htmlFor="recibido">
-                  ¿Con cuánto paga? <span className="font-normal text-stone-500">(opcional, para calcular las vueltas)</span>
+                  {t('¿Con cuánto paga?')} <span className="font-normal text-stone-500">{t('(opcional, para calcular las vueltas)')}</span>
                 </label>
                 <input
                   id="recibido"
                   inputMode="numeric"
-                  value={recibido ? Number(recibido.replace(/\D/g, '')).toLocaleString('es-CO') : ''}
+                  value={recibido ? Number(recibido.replace(/\D/g, '')).toLocaleString(regionActual()) : ''}
                   onChange={(e) => setRecibido(e.target.value.replace(/\D/g, '').slice(0, 9))}
                   placeholder="0"
                   className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-lg font-semibold tabular-nums outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
                 />
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setRecibido(String(pedido.total))} className="rounded-full bg-white px-3 py-1 text-xs font-semibold ring-1 ring-stone-300 hover:bg-stone-100">
-                    Exacto
+                    {t('Exacto')}
                   </button>
                   {billetesSugeridos(pedido.total).map((v) => (
                     <button key={v} type="button" onClick={() => setRecibido(String(v))} className="rounded-full bg-white px-3 py-1 text-xs font-semibold tabular-nums ring-1 ring-stone-300 hover:bg-stone-100">
@@ -166,7 +167,7 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
                 </div>
                 {monto > 0 && (
                   <p className={`mt-3 flex items-baseline justify-between text-sm font-semibold ${falta ? 'text-red-700' : 'text-emerald-800'}`} aria-live="polite">
-                    {falta ? 'Falta' : 'Vueltas'}
+                    {falta ? t('Falta') : t('Vueltas')}
                     <span className="text-xl tabular-nums">{pesos(Math.abs(monto - pedido.total))}</span>
                   </p>
                 )}
@@ -179,17 +180,17 @@ export function DialogoCobro({ pedido, cajaAbierta, esAdmin, alCobrar, alCerrar 
           <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-stone-700">
             <input type="checkbox" checked={imprimir} onChange={(e) => setImprimir(e.target.checked)} className="size-4 accent-marca-600" />
             <Printer className="size-4 text-stone-500" aria-hidden />
-            Imprimir el tiquete del cliente
+            {t('Imprimir el tiquete del cliente')}
           </label>
         )}
 
         <div className="mt-6 flex justify-end gap-2">
           <Boton type="button" variante="secundario" onClick={alCerrar} ref={pagadoEnLinea || sinCaja ? primerBoton : undefined}>
-            Volver
+            {t('Volver')}
           </Boton>
           {!sinCaja && (
             <Boton type="submit" variante="exito" disabled={falta}>
-              {pagadoEnLinea ? 'Marcar pagado' : `Cobrar ${pesos(pedido.total)}`}
+              {pagadoEnLinea ? t('Marcar pagado') : t('Cobrar {total}', { total: pesos(pedido.total) })}
             </Boton>
           )}
         </div>

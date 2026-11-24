@@ -4,9 +4,12 @@ import { BookOpen, ChartColumn, CirclePlus, ClipboardList, LayoutGrid, LogOut, L
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
+import { BarraAccesibilidad } from '@/components/accesibilidad';
 import { ProveedorAvisos } from '@/components/avisos';
 import { ProveedorImpresion } from '@/components/impresion';
 import { Marca } from '@/components/marca';
+import { Pie, SaltarAlContenido } from '@/components/pagina-publica';
+import { t } from '@/lib/i18n';
 import { useSesion } from '@/lib/sesion';
 import { Rol, UsuarioSesion } from '@/lib/tipos';
 
@@ -69,14 +72,15 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
   return (
     <ProveedorImpresion>
       <ProveedorAvisos>
-        <div className="min-h-screen lg:pl-64">
+        <SaltarAlContenido />
+        <div className="flex min-h-screen flex-col lg:pl-64">
           {/* Barra superior, solo en pantallas pequeñas */}
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:hidden">
             <Marca />
             <button
               onClick={() => setAbierto(true)}
               className="rounded-lg p-2 text-stone-700 hover:bg-stone-100"
-              aria-label="Abrir el menú"
+              aria-label={t('Abrir el menú')}
               aria-expanded={abierto}
               aria-controls="menu-lateral"
             >
@@ -96,17 +100,17 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
               <Link href="/" className="min-w-0">
                 <Marca />
               </Link>
-              <button onClick={() => setAbierto(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 lg:hidden" aria-label="Cerrar el menú">
+              <button onClick={() => setAbierto(false)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 lg:hidden" aria-label={t('Cerrar el menú')}>
                 <X className="size-5" aria-hidden />
               </button>
             </div>
-            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2" aria-label="Menú principal">
+            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-2" aria-label={t('Menú principal')}>
               {GRUPOS.map((g) => {
                 const opciones = g.opciones.filter((o) => o.roles.includes(usuario.rol));
                 if (opciones.length === 0) return null;
                 return (
                   <div key={g.titulo}>
-                    <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-400">{g.titulo}</p>
+                    <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-500">{t(g.titulo)}</p>
                     <ul className="space-y-0.5">
                       {opciones.map((o) => {
                         const activa = ruta === o.ruta;
@@ -121,7 +125,7 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
                               }`}
                             >
                               <Icono className={`size-[18px] ${activa ? 'text-marca-600' : 'text-stone-400'}`} aria-hidden />
-                              {o.texto}
+                              {t(o.texto)}
                             </Link>
                           </li>
                         );
@@ -131,10 +135,14 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
                 );
               })}
             </nav>
+            <BarraAccesibilidad className="border-t border-stone-200 px-4 pt-3" />
             <TarjetaUsuario usuario={usuario} salir={salir} />
           </aside>
 
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+          <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
+            {children}
+          </main>
+          <Pie className="print:hidden" />
         </div>
       </ProveedorAvisos>
     </ProveedorImpresion>
@@ -142,7 +150,7 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
 }
 
 function TarjetaUsuario({ usuario, salir }: { usuario: UsuarioSesion; salir: () => void }) {
-  const rol = NOMBRE_ROL[usuario.rol];
+  const rol = t(NOMBRE_ROL[usuario.rol]);
   return (
     <div className="flex items-center gap-3 border-t border-stone-200 px-4 py-4">
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-stone-100 text-sm font-semibold text-stone-700" aria-hidden>
@@ -153,7 +161,7 @@ function TarjetaUsuario({ usuario, salir }: { usuario: UsuarioSesion; salir: () 
         {/* El administrador del seed se llama "Administrador": no se repite */}
         {usuario.nombre !== rol && <p className="truncate text-xs text-stone-500">{rol}</p>}
       </div>
-      <button onClick={salir} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900" aria-label="Cerrar sesión" title="Cerrar sesión">
+      <button onClick={salir} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900" aria-label={t('Cerrar sesión')} title={t('Cerrar sesión')}>
         <LogOut className="size-[18px]" aria-hidden />
       </button>
     </div>

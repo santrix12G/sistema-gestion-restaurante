@@ -8,6 +8,7 @@ import { llamar } from '@/lib/api';
 import { Celda, descargarCsv } from '@/lib/csv';
 import { pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
+import { regionActual, t } from '@/lib/i18n';
 import { ReportePeriodo as Reporte, TiempoServicio } from '@/lib/tipos';
 
 /** Mismos niveles de espera que las tarjetas de pedido */
@@ -20,9 +21,9 @@ function sumarDias(dia: string, dias: number) {
   return fecha.toISOString().slice(0, 10);
 }
 
-const formatoDia = new Intl.DateTimeFormat('es-CO', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 /** "2026-11-09" → "lun, 9 nov" */
-const nombreDia = (dia: string) => formatoDia.format(new Date(`${dia}T12:00:00.000Z`)).replace('.', '');
+const nombreDia = (dia: string) =>
+  new Intl.DateTimeFormat(regionActual(), { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${dia}T12:00:00.000Z`)).replace('.', '');
 const DIA_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 interface Rango {
@@ -63,17 +64,17 @@ export function ReportePeriodo() {
               onClick={() => setRango(a.rango())}
               className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 ${atajo === a ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50'}`}
             >
-              {a.texto}
+              {t(a.texto)}
             </button>
           ))}
         </div>
         <div className="flex flex-wrap items-end gap-3 lg:ml-auto">
           <label className="text-sm font-medium text-stone-700">
-            <span className="mb-1 block">Desde</span>
+            <span className="mb-1 block">{t('Desde')}</span>
             <input type="date" className={claseFecha} value={rango.desde} max={rango.hasta} onChange={(e) => e.target.value && setRango({ ...rango, desde: e.target.value })} />
           </label>
           <label className="text-sm font-medium text-stone-700">
-            <span className="mb-1 block">Hasta</span>
+            <span className="mb-1 block">{t('Hasta')}</span>
             <input type="date" className={claseFecha} value={rango.hasta} min={rango.desde} max={hoy()} onChange={(e) => e.target.value && setRango({ ...rango, hasta: e.target.value })} />
           </label>
         </div>
@@ -90,63 +91,63 @@ function Contenido({ rango }: { rango: Rango }) {
 
   const { ventas, cancelados, comparacion, porDia, mejorDia, porCanal, porTipo, porHora, horaPico } = datos;
   const dias = porDia.length;
-  const sinVentas = 'No hubo ventas en este período';
+  const sinVentas = t('No hubo ventas en este período');
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-stone-600">
-          Del <strong>{nombreDia(datos.desde)}</strong> al <strong>{nombreDia(datos.hasta)}</strong> · {plural(dias, 'día', 'días')}
+          {t('Del')} <strong>{nombreDia(datos.desde)}</strong> {t('al')} <strong>{nombreDia(datos.hasta)}</strong> · {plural(dias, 'día', 'días')}
         </p>
         <Boton variante="secundario" onClick={() => descargarCsv(`reporte-${datos.desde}-a-${datos.hasta}.csv`, filasCsv(datos))}>
           <Download className="size-4" aria-hidden />
-          Descargar para Excel
+          {t('Descargar para Excel')}
         </Boton>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Cifra titulo="Vendido" valor={pesos(ventas.total)} detalle={<Variacion valor={comparacion.variacionVentas} dias={dias} clara />} destacada />
-        <Cifra titulo="Pedidos pagados" valor={String(ventas.pedidos)} detalle={<Variacion valor={comparacion.variacionPedidos} dias={dias} />} />
-        <Cifra titulo="Promedio por pedido" valor={pesos(ventas.promedio)} detalle={plural(ventas.platos, 'producto vendido', 'productos vendidos')} />
-        <Cifra titulo="Cancelados" valor={String(cancelados.pedidos)} detalle={`${pesos(cancelados.total)} que no se cobraron`} />
+        <Cifra titulo={t('Vendido')} valor={pesos(ventas.total)} detalle={<Variacion valor={comparacion.variacionVentas} dias={dias} clara />} destacada />
+        <Cifra titulo={t('Pedidos pagados')} valor={String(ventas.pedidos)} detalle={<Variacion valor={comparacion.variacionPedidos} dias={dias} />} />
+        <Cifra titulo={t('Promedio por pedido')} valor={pesos(ventas.promedio)} detalle={plural(ventas.platos, 'producto vendido', 'productos vendidos')} />
+        <Cifra titulo={t('Cancelados')} valor={String(cancelados.pedidos)} detalle={t('{valor} que no se cobraron', { valor: pesos(cancelados.total) })} />
       </div>
 
-      <Panel titulo="Ventas por día" detalle={mejorDia ? `Mejor día: ${nombreDia(mejorDia.fecha)} con ${pesos(mejorDia.total)}` : undefined}>
+      <Panel titulo={t('Ventas por día')} detalle={mejorDia ? t('Mejor día: {dia} con {valor}', { dia: nombreDia(mejorDia.fecha), valor: pesos(mejorDia.total) }) : undefined}>
         {ventas.pedidos === 0 ? <Vacio>{sinVentas}</Vacio> : <GraficaDias porDia={porDia} mejor={mejorDia?.fecha} />}
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel titulo="Días de la semana" detalle="Promedio vendido cada día">
+        <Panel titulo={t('Días de la semana')} detalle={t('Promedio vendido cada día')}>
           <DiasSemana datos={datos} />
         </Panel>
-        <Panel titulo="Tiempos de servicio" detalle="Desde que llega el pedido hasta que se cobra">
+        <Panel titulo={t('Tiempos de servicio')} detalle={t('Desde que llega el pedido hasta que se cobra')}>
           <Tiempos datos={datos} />
         </Panel>
-        <Panel titulo="Meseros">
+        <Panel titulo={t('Meseros')}>
           <Meseros datos={datos} />
         </Panel>
-        <Panel titulo="Repartidores">
+        <Panel titulo={t('Repartidores')}>
           <Repartidores datos={datos} />
         </Panel>
-        <Panel titulo="Ventas por canal" detalle={parteDelChatbot(porCanal, ventas.total)}>
+        <Panel titulo={t('Ventas por canal')} detalle={parteDelChatbot(porCanal, ventas.total)}>
           <VentasPorCanal porCanal={porCanal} />
         </Panel>
-        <Panel titulo="Ventas por tipo de pedido">
+        <Panel titulo={t('Ventas por tipo de pedido')}>
           <VentasPorTipo porTipo={porTipo} />
         </Panel>
       </div>
 
-      <Panel titulo="Horas pico" detalle={horaPico !== null ? `Más pedidos a las ${nombreHora(horaPico)}` : undefined}>
+      <Panel titulo={t('Horas pico')} detalle={horaPico !== null ? t('Más pedidos a las {hora}', { hora: nombreHora(horaPico) }) : undefined}>
         <HorasPico porHora={porHora} horaPico={horaPico} sinVentas={sinVentas} />
       </Panel>
 
-      <Panel titulo="Productos" detalle="Del que más vendió al que menos, con los que no se vendieron">
+      <Panel titulo={t('Productos')} detalle={t('Del que más vendió al que menos, con los que no se vendieron')}>
         <Productos datos={datos} />
       </Panel>
 
       <p className="text-xs text-stone-500">
-        Un pedido cuenta el día en que se cobró o se canceló. Lo vendido incluye el costo de los domicilios; los cancelados no suman a ninguna cifra de ventas. La comparación
-        es contra los {plural(dias, 'día', 'días')} anteriores al período.
+        {t('Un pedido cuenta el día en que se cobró o se canceló. Lo vendido incluye el costo de los domicilios; los cancelados no suman a ninguna cifra de ventas.')}{' '}
+        {t('La comparación es contra los {dias} anteriores al período.', { dias: plural(dias, 'día', 'días') })}
       </p>
     </div>
   );
@@ -154,9 +155,9 @@ function Contenido({ rango }: { rango: Rango }) {
 
 /** "▲ 12 % frente a los 7 días anteriores" */
 function Variacion({ valor, dias, clara }: { valor: number | null; dias: number; clara?: boolean }) {
-  const anteriores = dias === 1 ? 'el día anterior' : `los ${dias} días anteriores`;
-  const contra = `frente a ${anteriores}`;
-  if (valor === null) return <>No hubo ventas en {anteriores} para comparar</>;
+  const anteriores = dias === 1 ? t('el día anterior') : t('los {n} días anteriores', { n: dias });
+  const contra = t('frente a {periodo}', { periodo: anteriores });
+  if (valor === null) return <>{t('No hubo ventas en {periodo} para comparar', { periodo: anteriores })}</>;
   const sube = valor >= 0;
   const Icono = sube ? TrendingUp : TrendingDown;
   const color = clara ? 'text-white' : sube ? 'text-emerald-700' : 'text-red-700';
@@ -177,7 +178,7 @@ function GraficaDias({ porDia, mejor }: { porDia: Reporte['porDia']; mejor?: str
   const max = Math.max(...porDia.map((d) => d.total), 1);
   const cada = porDia.length <= 16 ? 1 : porDia.length <= 31 ? 2 : 7;
   return (
-    <div className={`flex h-52 items-end ${porDia.length > 31 ? 'gap-px' : 'gap-1'}`} role="list" aria-label="Vendido por día">
+    <div className={`flex h-52 items-end ${porDia.length > 31 ? 'gap-px' : 'gap-1'}`} role="list" aria-label={t('Vendido por día')}>
       {porDia.map((d, i) => (
         <div key={d.fecha} role="listitem" className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${nombreDia(d.fecha)}: ${pesos(d.total)}, ${plural(d.pedidos, 'pedido', 'pedidos')}`}>
           <div className="flex w-full flex-1 items-end">
@@ -199,8 +200,8 @@ function DiasSemana({ datos }: { datos: Reporte }) {
         <li key={d.diaSemana} className={d.dias === 0 ? 'opacity-40' : ''}>
           <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
             <span className="font-medium">
-              {DIA_SEMANA[d.diaSemana]}
-              {d === mejor && d.promedio > 0 && <span className="ml-2 rounded-full bg-marca-50 px-2 py-0.5 text-xs font-semibold text-marca-700">El más fuerte</span>}
+              {t(DIA_SEMANA[d.diaSemana])}
+              {d === mejor && d.promedio > 0 && <span className="ml-2 rounded-full bg-marca-50 px-2 py-0.5 text-xs font-semibold text-marca-700">{t('El más fuerte')}</span>}
             </span>
             <span className="text-stone-600">
               <strong className="text-stone-900">{pesos(d.promedio)}</strong> · {plural(d.pedidos, 'pedido', 'pedidos')}
@@ -219,37 +220,37 @@ const textoMinutos = (minutos: number | null) => (minutos === null ? '—' : `${
 
 function Tiempos({ datos }: { datos: Reporte }) {
   const { general, porTipo, limiteMinutos } = datos.tiempos;
-  if (general.pedidos === 0) return <Vacio>No hubo pedidos pagados en este período</Vacio>;
-  const fila = (nombre: string, t: TiempoServicio) => (
+  if (general.pedidos === 0) return <Vacio>{t('No hubo pedidos pagados en este período')}</Vacio>;
+  const fila = (nombre: string, tiempo: TiempoServicio) => (
     <tr key={nombre} className="border-t border-stone-100">
       <td className="py-2 font-medium">{nombre}</td>
-      <td className="py-2 text-right tabular-nums text-stone-600">{t.pedidos}</td>
-      <td className={`py-2 text-right font-semibold tabular-nums ${colorTiempo(t.minutosPromedio, limiteMinutos)}`}>{textoMinutos(t.minutosPromedio)}</td>
-      <td className="py-2 text-right tabular-nums text-stone-600">{t.pedidos ? `${t.demorados} (${t.porcentajeDemorados} %)` : '—'}</td>
+      <td className="py-2 text-right tabular-nums text-stone-600">{tiempo.pedidos}</td>
+      <td className={`py-2 text-right font-semibold tabular-nums ${colorTiempo(tiempo.minutosPromedio, limiteMinutos)}`}>{textoMinutos(tiempo.minutosPromedio)}</td>
+      <td className="py-2 text-right tabular-nums text-stone-600">{tiempo.pedidos ? `${tiempo.demorados} (${tiempo.porcentajeDemorados} %)` : '—'}</td>
     </tr>
   );
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-stone-50 p-3">
-          <p className="text-xs text-stone-500">Promedio</p>
+          <p className="text-xs text-stone-500">{t('Promedio')}</p>
           <p className={`text-2xl font-bold tabular-nums ${colorTiempo(general.minutosPromedio, limiteMinutos)}`}>{textoMinutos(general.minutosPromedio)}</p>
         </div>
         <div className="rounded-xl bg-stone-50 p-3">
-          <p className="text-xs text-stone-500">Pasaron de {limiteMinutos} min</p>
+          <p className="text-xs text-stone-500">{t('Pasaron de {n} min', { n: limiteMinutos })}</p>
           <p className="text-2xl font-bold tabular-nums">{general.porcentajeDemorados} %</p>
         </div>
       </div>
       <table className="w-full text-sm">
         <thead className="text-xs text-stone-500">
           <tr>
-            <th className="pb-1 text-left font-medium">Tipo</th>
-            <th className="pb-1 text-right font-medium">Pedidos</th>
-            <th className="pb-1 text-right font-medium">Promedio</th>
-            <th className="pb-1 text-right font-medium">Más de {limiteMinutos} min</th>
+            <th className="pb-1 text-left font-medium">{t('Tipo')}</th>
+            <th className="pb-1 text-right font-medium">{t('Pedidos')}</th>
+            <th className="pb-1 text-right font-medium">{t('Promedio')}</th>
+            <th className="pb-1 text-right font-medium">{t('Más de {n} min', { n: limiteMinutos })}</th>
           </tr>
         </thead>
-        <tbody>{porTipo.map((t) => fila(NOMBRE_TIPO[t.tipo], t))}</tbody>
+        <tbody>{porTipo.map((tiempo) => fila(t(NOMBRE_TIPO[tiempo.tipo]), tiempo))}</tbody>
       </table>
     </>
   );
@@ -257,15 +258,15 @@ function Tiempos({ datos }: { datos: Reporte }) {
 
 function Meseros({ datos }: { datos: Reporte }) {
   const { meseros, chatbot } = datos.personal;
-  if (meseros.length === 0 && chatbot.pedidos === 0) return <Vacio>No hubo pedidos pagados en este período</Vacio>;
+  if (meseros.length === 0 && chatbot.pedidos === 0) return <Vacio>{t('No hubo pedidos pagados en este período')}</Vacio>;
   return (
     <table className="w-full text-sm">
       <thead className="text-xs text-stone-500">
         <tr>
-          <th className="pb-1 text-left font-medium">Quién registró el pedido</th>
-          <th className="pb-1 text-right font-medium">Pedidos</th>
-          <th className="pb-1 text-right font-medium">Vendido</th>
-          <th className="hidden pb-1 text-right font-medium sm:table-cell">Promedio</th>
+          <th className="pb-1 text-left font-medium">{t('Quién registró el pedido')}</th>
+          <th className="pb-1 text-right font-medium">{t('Pedidos')}</th>
+          <th className="pb-1 text-right font-medium">{t('Vendido')}</th>
+          <th className="hidden pb-1 text-right font-medium sm:table-cell">{t('Promedio')}</th>
         </tr>
       </thead>
       <tbody>
@@ -282,7 +283,7 @@ function Meseros({ datos }: { datos: Reporte }) {
             <td className="py-2">
               <span className="inline-flex items-center gap-1.5">
                 <Bot className="size-4 text-marca-600" aria-hidden />
-                Chatbot (el cliente)
+                {t('Chatbot (el cliente)')}
               </span>
             </td>
             <td className="py-2 text-right tabular-nums">{chatbot.pedidos}</td>
@@ -297,16 +298,16 @@ function Meseros({ datos }: { datos: Reporte }) {
 
 function Repartidores({ datos }: { datos: Reporte }) {
   const { repartidores } = datos.personal;
-  if (repartidores.length === 0) return <Vacio>No hubo domicilios entregados en este período</Vacio>;
+  if (repartidores.length === 0) return <Vacio>{t('No hubo domicilios entregados en este período')}</Vacio>;
   return (
     <table className="w-full text-sm">
       <thead className="text-xs text-stone-500">
         <tr>
-          <th className="pb-1 text-left font-medium">Repartidor</th>
-          <th className="pb-1 text-right font-medium">Entregas</th>
-          <th className="pb-1 text-right font-medium">Vendido</th>
-          <th className="pb-1 text-right font-medium" title="Desde que toma el domicilio hasta que lo entrega">
-            En camino
+          <th className="pb-1 text-left font-medium">{t('Repartidor')}</th>
+          <th className="pb-1 text-right font-medium">{t('Entregas')}</th>
+          <th className="pb-1 text-right font-medium">{t('Vendido')}</th>
+          <th className="pb-1 text-right font-medium" title={t('Desde que toma el domicilio hasta que lo entrega')}>
+            {t('En camino')}
           </th>
         </tr>
       </thead>
@@ -326,17 +327,17 @@ function Repartidores({ datos }: { datos: Reporte }) {
 
 function Productos({ datos }: { datos: Reporte }) {
   const max = Math.max(...datos.productos.map((p) => p.total), 1);
-  if (datos.productos.length === 0) return <Vacio>No hay productos en el menú</Vacio>;
+  if (datos.productos.length === 0) return <Vacio>{t('No hay productos en el menú')}</Vacio>;
   return (
     <div>
       <table className="w-full text-sm">
         <thead className="text-xs text-stone-500">
           <tr>
             <th className="w-8 pb-1 text-left font-medium">#</th>
-            <th className="pb-1 text-left font-medium">Producto</th>
-            <th className="pb-1 text-right font-medium">Unidades</th>
-            <th className="pb-1 text-right font-medium">Vendido</th>
-            <th className="hidden w-1/4 pb-1 pl-4 text-left font-medium sm:table-cell">Parte de lo vendido</th>
+            <th className="pb-1 text-left font-medium">{t('Producto')}</th>
+            <th className="pb-1 text-right font-medium">{t('Unidades')}</th>
+            <th className="pb-1 text-right font-medium">{t('Vendido')}</th>
+            <th className="hidden w-1/4 pb-1 pl-4 text-left font-medium sm:table-cell">{t('Parte de lo vendido')}</th>
           </tr>
         </thead>
         <tbody>
@@ -345,7 +346,7 @@ function Productos({ datos }: { datos: Reporte }) {
               <td className="py-2 tabular-nums text-stone-400">{p.cantidad ? i + 1 : ''}</td>
               <td className="py-2 font-medium">
                 {p.nombre}
-                {p.cantidad === 0 && <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">Sin ventas</span>}
+                {p.cantidad === 0 && <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">{t('Sin ventas')}</span>}
               </td>
               <td className="py-2 text-right tabular-nums">{p.cantidad}</td>
               <td className="py-2 text-right font-semibold tabular-nums">{pesos(p.total)}</td>
@@ -354,7 +355,7 @@ function Productos({ datos }: { datos: Reporte }) {
                   <div className="flex-1">
                     <Barra proporcion={p.total / max} />
                   </div>
-                  <span className="w-12 text-right text-xs tabular-nums">{p.porcentaje.toLocaleString('es-CO')} %</span>
+                  <span className="w-12 text-right text-xs tabular-nums">{p.porcentaje.toLocaleString(regionActual())} %</span>
                 </div>
               </td>
             </tr>
@@ -369,50 +370,50 @@ function Productos({ datos }: { datos: Reporte }) {
 function filasCsv(d: Reporte): Celda[][] {
   const { general, porTipo, limiteMinutos } = d.tiempos;
   return [
-    ['Reporte de ventas', `Del ${d.desde} al ${d.hasta}`],
+    [t('Reporte de ventas'), t('Del {desde} al {hasta}', { desde: d.desde, hasta: d.hasta })],
     [],
-    ['Resumen'],
-    ['Vendido', d.ventas.total],
-    ['Pedidos pagados', d.ventas.pedidos],
-    ['Promedio por pedido', d.ventas.promedio],
-    ['Productos vendidos', d.ventas.platos],
-    ['Pedidos cancelados', d.cancelados.pedidos],
-    ['Valor cancelado', d.cancelados.total],
-    ['Vendido en el período anterior', d.comparacion.anterior.total],
-    ['Variación de ventas (%)', d.comparacion.variacionVentas],
+    [t('Resumen')],
+    [t('Vendido'), d.ventas.total],
+    [t('Pedidos pagados'), d.ventas.pedidos],
+    [t('Promedio por pedido'), d.ventas.promedio],
+    [t('Productos vendidos'), d.ventas.platos],
+    [t('Pedidos cancelados'), d.cancelados.pedidos],
+    [t('Valor cancelado'), d.cancelados.total],
+    [t('Vendido en el período anterior'), d.comparacion.anterior.total],
+    [t('Variación de ventas (%)'), d.comparacion.variacionVentas],
     [],
-    ['Ventas por día'],
-    ['Fecha', 'Pedidos', 'Vendido'],
+    [t('Ventas por día')],
+    [t('Fecha'), t('Pedidos'), t('Vendido')],
     ...d.porDia.map((x) => [x.fecha, x.pedidos, x.total]),
     [],
-    ['Días de la semana'],
-    ['Día', 'Días en el período', 'Pedidos', 'Vendido', 'Promedio por día'],
-    ...d.porDiaSemana.map((x) => [DIA_SEMANA[x.diaSemana], x.dias, x.pedidos, x.total, x.promedio]),
+    [t('Días de la semana')],
+    [t('Día'), t('Días en el período'), t('Pedidos'), t('Vendido'), t('Promedio por día')],
+    ...d.porDiaSemana.map((x) => [t(DIA_SEMANA[x.diaSemana]), x.dias, x.pedidos, x.total, x.promedio]),
     [],
-    ['Productos'],
-    ['Puesto', 'Producto', 'Unidades', 'Vendido', '% de lo vendido'],
+    [t('Productos')],
+    [t('Puesto'), t('Producto'), t('Unidades'), t('Vendido'), t('% de lo vendido')],
     ...d.productos.map((p, i) => [p.cantidad ? i + 1 : '', p.nombre, p.cantidad, p.total, p.porcentaje]),
     [],
-    ['Meseros'],
-    ['Mesero', 'Pedidos', 'Vendido', 'Promedio'],
+    [t('Meseros')],
+    [t('Mesero'), t('Pedidos'), t('Vendido'), t('Promedio')],
     ...d.personal.meseros.map((m) => [m.nombre, m.pedidos, m.total, m.promedio]),
-    ['Chatbot (el cliente)', d.personal.chatbot.pedidos, d.personal.chatbot.total, null],
+    [t('Chatbot (el cliente)'), d.personal.chatbot.pedidos, d.personal.chatbot.total, null],
     [],
-    ['Repartidores'],
-    ['Repartidor', 'Entregas', 'Vendido', 'Minutos en camino (promedio)'],
+    [t('Repartidores')],
+    [t('Repartidor'), t('Entregas'), t('Vendido'), t('Minutos en camino (promedio)')],
     ...d.personal.repartidores.map((r) => [r.nombre, r.entregas, r.total, r.minutosEnCamino]),
     [],
-    ['Tiempos de servicio (minutos desde que llega el pedido hasta que se cobra)'],
-    ['Tipo', 'Pedidos', 'Minutos promedio', `Más de ${limiteMinutos} min`, `% más de ${limiteMinutos} min`],
-    ['Todos', general.pedidos, general.minutosPromedio, general.demorados, general.porcentajeDemorados],
-    ...porTipo.map((t) => [NOMBRE_TIPO[t.tipo], t.pedidos, t.minutosPromedio, t.demorados, t.porcentajeDemorados]),
+    [t('Tiempos de servicio (minutos desde que llega el pedido hasta que se cobra)')],
+    [t('Tipo'), t('Pedidos'), t('Minutos promedio'), t('Más de {n} min', { n: limiteMinutos }), t('% más de {n} min', { n: limiteMinutos })],
+    [t('Todos'), general.pedidos, general.minutosPromedio, general.demorados, general.porcentajeDemorados],
+    ...porTipo.map((x) => [t(NOMBRE_TIPO[x.tipo]), x.pedidos, x.minutosPromedio, x.demorados, x.porcentajeDemorados]),
     [],
-    ['Ventas por canal'],
-    ['Canal', 'Pedidos', 'Vendido'],
-    ...d.porCanal.map((c) => [NOMBRE_CANAL[c.canal], c.pedidos, c.total]),
+    [t('Ventas por canal')],
+    [t('Canal'), t('Pedidos'), t('Vendido')],
+    ...d.porCanal.map((c) => [t(NOMBRE_CANAL[c.canal]), c.pedidos, c.total]),
     [],
-    ['Ventas por tipo de pedido'],
-    ['Tipo', 'Pedidos', 'Vendido'],
-    ...d.porTipo.map((t) => [NOMBRE_TIPO[t.tipo], t.pedidos, t.total]),
+    [t('Ventas por tipo de pedido')],
+    [t('Tipo'), t('Pedidos'), t('Vendido')],
+    ...d.porTipo.map((x) => [t(NOMBRE_TIPO[x.tipo]), x.pedidos, x.total]),
   ];
 }

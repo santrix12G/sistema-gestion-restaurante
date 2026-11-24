@@ -7,6 +7,7 @@ import { Aviso, Boton, Campo, Cargando, Titulo } from '@/components/ui';
 import { llamar, mensajeDeError } from '@/lib/api';
 import { NOMBRE_TIPO_MESA } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
+import { t } from '@/lib/i18n';
 import { useSesion } from '@/lib/sesion';
 import { Mesa, TipoMesa } from '@/lib/tipos';
 
@@ -48,16 +49,21 @@ export default function Mesas() {
     actuar(
       m.id,
       () => llamar(`/mesas/${m.id}`, { metodo: 'PATCH', cuerpo: datos }),
-      datos.activa === undefined ? `Mesa ${m.codigo} actualizada` : `Mesa ${m.codigo} ${datos.activa ? 'reactivada' : 'suspendida'}`,
+      t(datos.activa === undefined ? 'Mesa {codigo} actualizada' : datos.activa ? 'Mesa {codigo} reactivada' : 'Mesa {codigo} suspendida', { codigo: m.codigo }),
     );
   async function borrar(m: Mesa) {
-    const si = await confirmar({ titulo: `¿Borrar la mesa ${m.codigo}?`, detalle: 'Esta acción no se puede deshacer.', aceptar: 'Borrar mesa', peligro: true });
-    if (si) await actuar(m.id, () => llamar(`/mesas/${m.id}`, { metodo: 'DELETE' }), `Mesa ${m.codigo} borrada`);
+    const si = await confirmar({
+      titulo: t('¿Borrar la mesa {codigo}?', { codigo: m.codigo }),
+      detalle: t('Esta acción no se puede deshacer.'),
+      aceptar: t('Borrar mesa'),
+      peligro: true,
+    });
+    if (si) await actuar(m.id, () => llamar(`/mesas/${m.id}`, { metodo: 'DELETE' }), t('Mesa {codigo} borrada', { codigo: m.codigo }));
   }
 
   return (
     <>
-      <Titulo>Mesas</Titulo>
+      <Titulo>{t('Mesas')}</Titulo>
       <div className="mb-4 space-y-2">
         <Aviso>{error}</Aviso>
         <Aviso>{errorAccion}</Aviso>
@@ -72,7 +78,7 @@ export default function Mesas() {
             return (
               <section key={tipo} className="rounded-2xl bg-stone-200/60 p-3">
                 <h2 className="mb-3 flex items-center justify-between px-1 text-sm font-semibold text-stone-700">
-                  {NOMBRE_TIPO_MESA[tipo]}
+                  {t(NOMBRE_TIPO_MESA[tipo])}
                   <span className="rounded-full bg-white px-2 py-0.5 text-xs">{lista.length}</span>
                 </h2>
                 <ul className="space-y-2">
@@ -83,30 +89,30 @@ export default function Mesas() {
                       <li key={m.id} className={`flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 ring-1 ring-stone-200 ${m.activa ? '' : 'opacity-60'}`}>
                         <span className="w-12 text-lg font-bold">{m.codigo}</span>
                         <span className="flex-1 text-sm text-stone-600">
-                          {m.capacidad} puestos
-                          {!m.activa && <span className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 text-xs font-semibold text-stone-700">Suspendida</span>}
-                          {m.pedidosActivos > 0 && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{m.pedidosActivos} activo(s)</span>}
+                          {t('{n} puestos', { n: m.capacidad })}
+                          {!m.activa && <span className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 text-xs font-semibold text-stone-700">{t('Suspendida')}</span>}
+                          {m.pedidosActivos > 0 && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{t('{n} activo(s)', { n: m.pedidosActivos })}</span>}
                         </span>
                         <span className="flex gap-1">
-                          <Boton variante="secundario" className="px-2.5 py-1" disabled={ocupado === m.id} onClick={() => setEditando(m.id)}>Editar</Boton>
+                          <Boton variante="secundario" className="px-2.5 py-1" disabled={ocupado === m.id} onClick={() => setEditando(m.id)}>{t('Editar')}</Boton>
                           <Boton variante="secundario" className="px-2.5 py-1" disabled={ocupado === m.id} onClick={() => cambiar(m, { activa: !m.activa })}>
-                            {m.activa ? 'Suspender' : 'Activar'}
+                            {m.activa ? t('Suspender') : t('Activar')}
                           </Boton>
                           {!m.tienePedidos && (
-                            <Boton variante="peligro" className="px-2.5 py-1" disabled={ocupado === m.id} onClick={() => borrar(m)}>Borrar</Boton>
+                            <Boton variante="peligro" className="px-2.5 py-1" disabled={ocupado === m.id} onClick={() => borrar(m)}>{t('Borrar')}</Boton>
                           )}
                         </span>
                       </li>
                     ),
                   )}
-                  {lista.length === 0 && <p className="px-1 py-4 text-center text-xs text-stone-500">Sin mesas de este tipo</p>}
+                  {lista.length === 0 && <p className="px-1 py-4 text-center text-xs text-stone-500">{t('Sin mesas de este tipo')}</p>}
                 </ul>
               </section>
             );
           })}
         </div>
       )}
-      <p className="mt-4 text-xs text-stone-500">Una mesa que ya tuvo pedidos no se puede borrar: se suspende y deja de aparecer al tomar pedidos.</p>
+      <p className="mt-4 text-xs text-stone-500">{t('Una mesa que ya tuvo pedidos no se puede borrar: se suspende y deja de aparecer al tomar pedidos.')}</p>
     </>
   );
 }
@@ -129,7 +135,7 @@ function NuevaMesa({ alGuardar }: { alGuardar: () => Promise<void> }) {
         metodo: 'POST',
         cuerpo: { tipo, capacidad: Number(capacidad), ...(numero && { numero: Number(numero) }) },
       });
-      setAviso(`Mesa ${mesa.codigo} registrada`);
+      setAviso(t('Mesa {codigo} registrada', { codigo: mesa.codigo }));
       setNumero('');
       await alGuardar();
     } catch (e) {
@@ -140,27 +146,27 @@ function NuevaMesa({ alGuardar }: { alGuardar: () => Promise<void> }) {
 
   return (
     <form onSubmit={guardar} className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-      <h2 className="mb-3 font-semibold">Registrar mesa</h2>
+      <h2 className="mb-3 font-semibold">{t('Registrar mesa')}</h2>
       <div className="flex flex-wrap items-end gap-3">
         <fieldset>
-          <legend className="mb-1 block text-sm font-medium text-stone-700">Tipo</legend>
+          <legend className="mb-1 block text-sm font-medium text-stone-700">{t('Tipo')}</legend>
           <div className="inline-flex rounded-xl bg-stone-200/70 p-1 text-sm font-medium">
-            {TIPOS.map((t) => (
+            {TIPOS.map((opcion) => (
               <button
-                key={t.tipo}
+                key={opcion.tipo}
                 type="button"
-                aria-pressed={tipo === t.tipo}
-                onClick={() => setTipo(t.tipo)}
-                className={`rounded-lg px-3 py-1.5 ${tipo === t.tipo ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
+                aria-pressed={tipo === opcion.tipo}
+                onClick={() => setTipo(opcion.tipo)}
+                className={`rounded-lg px-3 py-1.5 ${tipo === opcion.tipo ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
               >
-                {t.nombre} <span className="text-xs text-stone-400">{t.ejemplo}</span>
+                {t(opcion.nombre)} <span className="text-xs text-stone-500">{opcion.ejemplo}</span>
               </button>
             ))}
           </div>
         </fieldset>
-        <Campo etiqueta="Número" className="w-32" type="number" min={1} max={999} placeholder="Siguiente" value={numero} onChange={(e) => setNumero(e.target.value)} />
-        <Campo etiqueta="Puestos" className="w-24" type="number" min={1} max={50} required value={capacidad} onChange={(e) => setCapacidad(e.target.value)} />
-        <Boton type="submit" disabled={enviando}>Registrar</Boton>
+        <Campo etiqueta={t('Número')} className="w-32" type="number" min={1} max={999} placeholder={t('Siguiente')} value={numero} onChange={(e) => setNumero(e.target.value)} />
+        <Campo etiqueta={t('Puestos')} className="w-24" type="number" min={1} max={50} required value={capacidad} onChange={(e) => setCapacidad(e.target.value)} />
+        <Boton type="submit" disabled={enviando}>{t('Registrar')}</Boton>
       </div>
       <div className="mt-3 space-y-2">
         <Aviso>{error}</Aviso>
@@ -182,10 +188,10 @@ function EditarMesa({ mesa, alCancelar, alGuardar }: { mesa: Mesa; alCancelar: (
           alGuardar({ numero: Number(numero), capacidad: Number(capacidad) });
         }}
       >
-        <Campo etiqueta="Número" className="w-24" type="number" min={1} max={999} required value={numero} onChange={(e) => setNumero(e.target.value)} />
-        <Campo etiqueta="Puestos" className="w-24" type="number" min={1} max={50} required value={capacidad} onChange={(e) => setCapacidad(e.target.value)} />
-        <Boton type="submit" className="px-3 py-1.5">Guardar</Boton>
-        <Boton type="button" variante="secundario" className="px-3 py-1.5" onClick={alCancelar}>Cancelar</Boton>
+        <Campo etiqueta={t('Número')} className="w-24" type="number" min={1} max={999} required value={numero} onChange={(e) => setNumero(e.target.value)} />
+        <Campo etiqueta={t('Puestos')} className="w-24" type="number" min={1} max={50} required value={capacidad} onChange={(e) => setCapacidad(e.target.value)} />
+        <Boton type="submit" className="px-3 py-1.5">{t('Guardar')}</Boton>
+        <Boton type="button" variante="secundario" className="px-3 py-1.5" onClick={alCancelar}>{t('Cancelar')}</Boton>
       </form>
     </li>
   );

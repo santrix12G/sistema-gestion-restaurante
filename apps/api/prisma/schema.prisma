@@ -129,6 +129,8 @@ model Usuario {
   rol          RolUsuario
   activo       Boolean    @default(true)
   creadoEn     DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+  /// Las sesiones iniciadas antes de esta fecha dejan de valer. Cambia al cambiar la contraseña
+  sesionesDesde DateTime? @map("sesiones_desde") @db.Timestamptz(3)
 
   pedidosCreados Pedido[]
   entregas       Entrega[]
@@ -138,8 +140,24 @@ model Usuario {
   cajasAbiertas  Caja[]                  @relation("CajaAbiertaPor")
   cajasCerradas  Caja[]                  @relation("CajaCerradaPor")
   movimientosCaja MovimientoCaja[]
+  tokensRecuperacion TokenRecuperacion[]
 
   @@map("usuarios")
+}
+
+/// Enlaces de un solo uso para restablecer la contraseña. Se guarda el hash, nunca el token
+model TokenRecuperacion {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiraEn  DateTime  @map("expira_en") @db.Timestamptz(3)
+  usadoEn   DateTime? @map("usado_en") @db.Timestamptz(3)
+  creadoEn  DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("tokens_recuperacion")
 }
 
 // ---------- Clientes ----------

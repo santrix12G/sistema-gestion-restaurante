@@ -60,6 +60,8 @@ export class PersonalService {
           rol,
           activo,
           passwordHash: password !== undefined ? await bcrypt.hash(password, 10) : undefined,
+          // Una contraseña nueva cierra las sesiones que la cuenta tenga abiertas
+          sesionesDesde: password !== undefined ? new Date() : undefined,
         },
         select: CAMPOS,
       }),

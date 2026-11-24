@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Vacio } from '@/components/ui';
 import { pesos } from '@/lib/formato';
+import { idiomaActual, plural, t } from '@/lib/i18n';
 import { EstadisticasDia, TipoPedido } from '@/lib/tipos';
 
 /** Piezas que comparten el resumen del día y el reporte por período */
@@ -14,8 +15,11 @@ export const NOMBRE_CANAL: Record<EstadisticasDia['porCanal'][number]['canal'], 
 };
 export const CHATBOT = ['WHATSAPP', 'TELEGRAM'];
 
-/** 13 → "1 p. m.", 12 → "12 m.", como se dice en Colombia */
+export { plural };
+
+/** 13 → "1 p. m.", 12 → "12 m.", como se dice en Colombia. En inglés, "1 PM" */
 export function nombreHora(hora: number) {
+  if (idiomaActual() === 'en') return `${hora % 12 || 12} ${hora < 12 ? 'AM' : 'PM'}`;
   if (hora === 0) return '12 a. m.';
   if (hora === 12) return '12 m.';
   return hora < 12 ? `${hora} a. m.` : `${hora - 12} p. m.`;
@@ -24,7 +28,6 @@ export function nombreHora(hora: number) {
 /** Fecha de hoy en Colombia como AAAA-MM-DD, la misma que usa la API */
 export const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
-export const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 export function Cifra({ titulo, valor, detalle, destacada }: { titulo: string; valor: string; detalle: ReactNode; destacada?: boolean }) {
   return (
@@ -65,8 +68,8 @@ export function VentasPorCanal({ porCanal }: { porCanal: EstadisticasDia['porCan
         <li key={c.canal}>
           <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
             <span className="font-medium">
-              {NOMBRE_CANAL[c.canal]}
-              {CHATBOT.includes(c.canal) && <span className="ml-2 rounded-full bg-marca-50 px-2 py-0.5 text-xs font-semibold text-marca-700">Chatbot</span>}
+              {t(NOMBRE_CANAL[c.canal])}
+              {CHATBOT.includes(c.canal) && <span className="ml-2 rounded-full bg-marca-50 px-2 py-0.5 text-xs font-semibold text-marca-700">{t('Chatbot')}</span>}
             </span>
             <span className="text-stone-600">
               <strong className="text-stone-900">{pesos(c.total)}</strong> · {plural(c.pedidos, 'pedido', 'pedidos')}
@@ -83,22 +86,22 @@ export function VentasPorCanal({ porCanal }: { porCanal: EstadisticasDia['porCan
 export function parteDelChatbot(porCanal: EstadisticasDia['porCanal'], vendido: number) {
   if (vendido <= 0) return undefined;
   const delChatbot = porCanal.filter((c) => CHATBOT.includes(c.canal)).reduce((s, c) => s + c.total, 0);
-  return `El chatbot trajo el ${Math.round((delChatbot / vendido) * 100)} % de lo vendido`;
+  return t('El chatbot trajo el {p} % de lo vendido', { p: Math.round((delChatbot / vendido) * 100) });
 }
 
 export function VentasPorTipo({ porTipo }: { porTipo: EstadisticasDia['porTipo'] }) {
-  const max = Math.max(...porTipo.map((t) => t.total), 1);
+  const max = Math.max(...porTipo.map((tipo) => tipo.total), 1);
   return (
     <ul className="space-y-3">
-      {porTipo.map((t) => (
-        <li key={t.tipo}>
+      {porTipo.map((tipo) => (
+        <li key={tipo.tipo}>
           <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-            <span className="font-medium">{NOMBRE_TIPO[t.tipo]}</span>
+            <span className="font-medium">{t(NOMBRE_TIPO[tipo.tipo])}</span>
             <span className="text-stone-600">
-              <strong className="text-stone-900">{pesos(t.total)}</strong> · {plural(t.pedidos, 'pedido', 'pedidos')}
+              <strong className="text-stone-900">{pesos(tipo.total)}</strong> · {plural(tipo.pedidos, 'pedido', 'pedidos')}
             </span>
           </div>
-          <Barra proporcion={t.total / max} />
+          <Barra proporcion={tipo.total / max} />
         </li>
       ))}
     </ul>
@@ -112,7 +115,7 @@ export function HorasPico({ porHora, horaPico, sinVentas }: { porHora: Estadisti
   const horas = porHora.slice(Math.min(11, ...conPedidos), Math.max(21, ...conPedidos) + 1);
   const max = Math.max(...horas.map((h) => h.pedidos));
   return (
-    <div className="flex h-44 items-end gap-1" role="list" aria-label="Pedidos por hora">
+    <div className="flex h-44 items-end gap-1" role="list" aria-label={t('Pedidos por hora')}>
       {horas.map((h) => (
         <div key={h.hora} role="listitem" className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${nombreHora(h.hora)}: ${plural(h.pedidos, 'pedido', 'pedidos')}, ${pesos(h.total)}`}>
           <span className="text-[10px] font-semibold tabular-nums text-stone-600">{h.pedidos || ''}</span>
@@ -123,7 +126,7 @@ export function HorasPico({ porHora, horaPico, sinVentas }: { porHora: Estadisti
               style={{ height: `${(h.pedidos / max) * 100}%`, minHeight: h.pedidos ? 4 : 0 }}
             />
           </div>
-          <span className="w-full truncate text-center text-[10px] text-stone-500">{nombreHora(h.hora).replace(' a. m.', 'a').replace(' p. m.', 'p').replace(' m.', 'm')}</span>
+          <span className="w-full truncate text-center text-[10px] text-stone-500">{nombreHora(h.hora).replace(' a. m.', 'a').replace(' p. m.', 'p').replace(' m.', 'm').replace(' AM', 'a').replace(' PM', 'p')}</span>
         </div>
       ))}
     </div>

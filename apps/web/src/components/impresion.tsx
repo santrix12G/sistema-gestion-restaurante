@@ -3,6 +3,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { NOMBRE_RESTAURANTE } from '@/components/marca';
 import { destino, pesos } from '@/lib/formato';
+import { regionActual, t } from '@/lib/i18n';
 import { MetodoCobro, Pedido } from '@/lib/tipos';
 
 /**
@@ -15,7 +16,7 @@ const NEGOCIO = {
   nit: process.env.NEXT_PUBLIC_TIQUETE_NIT,
   direccion: process.env.NEXT_PUBLIC_TIQUETE_DIRECCION,
   telefono: process.env.NEXT_PUBLIC_TIQUETE_TELEFONO,
-  mensaje: process.env.NEXT_PUBLIC_TIQUETE_MENSAJE || '¡Gracias por tu compra!',
+  mensaje: process.env.NEXT_PUBLIC_TIQUETE_MENSAJE,
 };
 
 const NOMBRE_METODO: Record<MetodoCobro | 'ONLINE', string> = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia', ONLINE: 'En línea' };
@@ -28,7 +29,7 @@ export interface DatosCobro {
 }
 
 const fechaHora = (fecha: string | Date) =>
-  new Date(fecha).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Bogota' });
+  new Date(fecha).toLocaleString(regionActual(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Bogota' });
 
 interface ContextoImpresion {
   /** Imprime el documento y resuelve cuando se cierra el cuadro de impresión */
@@ -107,48 +108,48 @@ export function TiqueteCliente({ pedido, cobro }: { pedido: Pedido; cobro?: Dato
         <p className="text-[14pt] font-bold uppercase">{NOMBRE_RESTAURANTE}</p>
         {NEGOCIO.nit && <p>NIT {NEGOCIO.nit}</p>}
         {NEGOCIO.direccion && <p>{NEGOCIO.direccion}</p>}
-        {NEGOCIO.telefono && <p>Tel. {NEGOCIO.telefono}</p>}
+        {NEGOCIO.telefono && <p>{t('Tel.')} {NEGOCIO.telefono}</p>}
       </header>
       <Linea />
       {/* Un pedido que se acaba de cobrar o sigue abierto lleva la hora de ahora; uno cerrado, la de su cierre */}
-      <Fila izquierda={<strong>Pedido #{pedido.numero}</strong>} derecha={fechaHora(cobro || pedido.estado === 'ACTIVO' ? new Date() : pedido.actualizadoEn)} />
+      <Fila izquierda={<strong>{t('Pedido #{numero}', { numero: pedido.numero })}</strong>} derecha={fechaHora(cobro || pedido.estado === 'ACTIVO' ? new Date() : pedido.actualizadoEn)} />
       <p>{destino(pedido)}</p>
-      {pedido.entrega && <p>Dirección: {pedido.entrega.direccionTexto}</p>}
-      {pedido.cliente?.telefono && pedido.tipo !== 'MESA' && <p>Tel. cliente: {pedido.cliente.telefono}</p>}
-      {pedido.creadoPor && <p>Atendió: {pedido.creadoPor.nombre}</p>}
+      {pedido.entrega && <p>{t('Dirección')}: {pedido.entrega.direccionTexto}</p>}
+      {pedido.cliente?.telefono && pedido.tipo !== 'MESA' && <p>{t('Tel. cliente')}: {pedido.cliente.telefono}</p>}
+      {pedido.creadoPor && <p>{t('Atendió')}: {pedido.creadoPor.nombre}</p>}
       <Linea />
       <div className="space-y-1">
         {pedido.detalles.map((d) => (
           <div key={d.id}>
             <Fila izquierda={`${d.cantidad} x ${d.nombreProducto}`} derecha={pesos(d.subtotal)} />
-            {d.cantidad > 1 && <p className="pl-3 text-[8pt]">{pesos(d.precioUnitario)} c/u</p>}
+            {d.cantidad > 1 && <p className="pl-3 text-[8pt]">{pesos(d.precioUnitario)} {t('c/u')}</p>}
           </div>
         ))}
       </div>
       <Linea />
       {pedido.costoDomicilio > 0 && (
         <>
-          <Fila izquierda="Subtotal" derecha={pesos(pedido.subtotal)} />
-          <Fila izquierda="Domicilio" derecha={pesos(pedido.costoDomicilio)} />
+          <Fila izquierda={t('Subtotal')} derecha={pesos(pedido.subtotal)} />
+          <Fila izquierda={t('Domicilio')} derecha={pesos(pedido.costoDomicilio)} />
         </>
       )}
-      <Fila izquierda="TOTAL" derecha={pesos(pedido.total)} fuerte />
+      <Fila izquierda={t('TOTAL')} derecha={pesos(pedido.total)} fuerte />
       {metodo && (
         <>
           <Linea />
-          <Fila izquierda="Forma de pago" derecha={NOMBRE_METODO[metodo]} />
+          <Fila izquierda={t('Forma de pago')} derecha={t(NOMBRE_METODO[metodo])} />
           {cobro?.recibido !== undefined && vueltas !== undefined && (
             <>
-              <Fila izquierda="Recibido" derecha={pesos(cobro.recibido)} />
-              <Fila izquierda="Vueltas" derecha={pesos(vueltas)} />
+              <Fila izquierda={t('Recibido')} derecha={pesos(cobro.recibido)} />
+              <Fila izquierda={t('Vueltas')} derecha={pesos(vueltas)} />
             </>
           )}
         </>
       )}
       <Linea />
       <footer className="text-center">
-        <p className="font-semibold">{NEGOCIO.mensaje}</p>
-        <p className="mt-1 text-[7.5pt]">Este documento no es una factura electrónica de venta.</p>
+        <p className="font-semibold">{NEGOCIO.mensaje || t('¡Gracias por tu compra!')}</p>
+        <p className="mt-1 text-[7.5pt]">{t('Este documento no es una factura electrónica de venta.')}</p>
       </footer>
     </article>
   );
@@ -159,7 +160,7 @@ export function Comanda({ pedido }: { pedido: Pedido }) {
   return (
     <article className="documento-impresion">
       <header className="text-center">
-        <p className="text-[10pt] font-semibold uppercase tracking-widest">Comanda</p>
+        <p className="text-[10pt] font-semibold uppercase tracking-widest">{t('Comanda')}</p>
         <p className="text-[22pt] leading-tight font-black">#{pedido.numero}</p>
         <p className="text-[15pt] font-bold">{destino(pedido)}</p>
         <p>
@@ -179,12 +180,12 @@ export function Comanda({ pedido }: { pedido: Pedido }) {
       {pedido.notas && (
         <>
           <Linea />
-          <p className="text-[11pt] font-bold">NOTA: {pedido.notas}</p>
+          <p className="text-[11pt] font-bold">{t('NOTA')}: {pedido.notas}</p>
         </>
       )}
       <Linea />
       <p className="text-center text-[8pt]">
-        {pedido.detalles.reduce((s, d) => s + d.cantidad, 0)} productos · {pedido.tipo === 'MESA' ? 'Para la mesa' : pedido.tipo === 'DOMICILIO' ? 'Para domicilio' : 'Para llevar'}
+        {t('{n} productos', { n: pedido.detalles.reduce((s, d) => s + d.cantidad, 0) })} · {t(pedido.tipo === 'MESA' ? 'Para la mesa' : pedido.tipo === 'DOMICILIO' ? 'Para domicilio' : 'Para llevar')}
       </p>
     </article>
   );

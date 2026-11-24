@@ -9,7 +9,8 @@ export const COLOR = {
   fondo: '#f5f5f4',
   tarjeta: '#ffffff',
   texto: '#1c1917',
-  suave: '#78716c',
+  // Gris de textos secundarios: contraste 7:1 sobre el fondo (WCAG AA pide 4,5:1)
+  suave: '#57534e',
   borde: '#d6d3d1',
   exito: '#059669',
   peligro: '#b91c1c',

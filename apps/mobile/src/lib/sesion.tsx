@@ -10,7 +10,8 @@ interface ContextoSesion {
   sesion: Sesion | null;
   /** false mientras se lee la sesión guardada: evita mostrar el login antes de tiempo */
   lista: boolean;
-  iniciar: (email: string, password: string) => Promise<UsuarioSesion>;
+  /** `recordar`: mantener la sesión al cerrar la app (se guarda cifrada en el celular, 30 días) */
+  iniciar: (email: string, password: string, recordar: boolean) => Promise<UsuarioSesion>;
   salir: () => void;
 }
 
@@ -41,13 +42,15 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     configurarSesionApi(sesion?.token ?? null, salir);
   }, [sesion, salir]);
 
-  const iniciar = useCallback(async (email: string, password: string) => {
-    const nueva = await llamar<Sesion>('/auth/login', { metodo: 'POST', cuerpo: { email: email.trim(), password } });
+  const iniciar = useCallback(async (email: string, password: string, recordar: boolean) => {
+    // La app no muestra captcha: entra por su propia ruta, que admite menos intentos por minuto
+    const nueva = await llamar<Sesion>('/auth/login/movil', { metodo: 'POST', cuerpo: { email: email.trim(), password, recordar } });
     if (!ROLES_DE_LA_APP.includes(nueva.usuario.rol)) {
       throw new ErrorApi(403, 'La app es para meseros y repartidores. Cocina usa la pantalla web');
     }
     configurarSesionApi(nueva.token, salir);
-    await escribir(JSON.stringify(nueva));
+    // Sin «mantener la sesión», no se guarda: dura mientras la app esté abierta (y máximo 12 horas)
+    await escribir(recordar ? JSON.stringify(nueva) : null);
     setSesion(nueva);
     return nueva.usuario;
   }, [salir]);

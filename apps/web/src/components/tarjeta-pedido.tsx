@@ -2,6 +2,7 @@ import { Bike, CircleX, Clock, CreditCard, Hourglass, LucideIcon, MapPin, Messag
 import { ReactNode } from 'react';
 import { destino, pesos } from '@/lib/formato';
 import { useAhora } from '@/lib/hooks';
+import { t } from '@/lib/i18n';
 import { EstadoPago, Pedido } from '@/lib/tipos';
 
 /** Por dónde llegó el pedido, con su ícono y color */
@@ -38,7 +39,7 @@ export function nivelEspera(minutos: number): keyof typeof ESPERA {
 }
 
 function textoEspera(minutos: number) {
-  if (minutos < 1) return 'Ahora';
+  if (minutos < 1) return t('Ahora');
   if (minutos < 60) return `${minutos} min`;
   return `${Math.floor(minutos / 60)} h ${minutos % 60} min`;
 }
@@ -50,7 +51,7 @@ function EtiquetaPago({ pedido }: { pedido: Pedido }) {
   return (
     <p className={`mb-3 flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold ${clase}`}>
       <Icono className="size-3.5 shrink-0" aria-hidden />
-      {texto}
+      {t(texto)}
     </p>
   );
 }
@@ -73,7 +74,7 @@ export function TarjetaPedido({ pedido, acciones }: { pedido: Pedido; acciones?:
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-stone-500">
             <span className={`inline-flex items-center gap-1 font-medium ${canal.clase}`}>
               <IconoCanal className="size-3.5" aria-hidden />
-              {canal.texto}
+              {t(canal.texto)}
             </span>
             {pedido.creadoPor && <span>· {pedido.creadoPor.nombre}</span>}
           </p>
@@ -81,7 +82,7 @@ export function TarjetaPedido({ pedido, acciones }: { pedido: Pedido; acciones?:
         <div className="flex shrink-0 flex-col items-end gap-1">
           <p className="text-base font-bold tabular-nums">{pesos(pedido.total)}</p>
           {abierto && (
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${espera.etiqueta}`} title="Tiempo desde que llegó el pedido">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${espera.etiqueta}`} title={t('Tiempo desde que llegó el pedido')}>
               <Clock className="size-3" aria-hidden />
               {textoEspera(minutos)}
             </span>
@@ -98,7 +99,7 @@ export function TarjetaPedido({ pedido, acciones }: { pedido: Pedido; acciones?:
           {abierto && (
             <p className={`flex items-center gap-1.5 text-xs font-semibold ${pedido.entrega.repartidor ? 'text-sky-700' : 'text-amber-700'}`}>
               <Bike className="size-4" aria-hidden />
-              {pedido.entrega.repartidor ? `En camino con ${pedido.entrega.repartidor.nombre}` : 'Esperando repartidor'}
+              {pedido.entrega.repartidor ? t('En camino con {nombre}', { nombre: pedido.entrega.repartidor.nombre }) : t('Esperando repartidor')}
             </p>
           )}
         </div>

@@ -5,6 +5,7 @@ import { Aviso, Boton, Campo, Cargando, Titulo } from '@/components/ui';
 import { llamar, mensajeDeError } from '@/lib/api';
 import { pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
+import { t } from '@/lib/i18n';
 import { useSesion } from '@/lib/sesion';
 import { Categoria, Producto } from '@/lib/tipos';
 
@@ -32,7 +33,7 @@ export default function Menu() {
   }
 
   if (!productos.datos || !categorias.datos) {
-    return <><Titulo>Menú</Titulo><Aviso>{productos.error ?? categorias.error}</Aviso>{!productos.error && !categorias.error && <Cargando />}</>;
+    return <><Titulo>{t('Menú')}</Titulo><Aviso>{productos.error ?? categorias.error}</Aviso>{!productos.error && !categorias.error && <Cargando />}</>;
   }
 
   return (
@@ -40,12 +41,12 @@ export default function Menu() {
       <Titulo
         accion={esAdmin && (
           <div className="flex gap-2">
-            <Boton variante="secundario" onClick={() => setEditando('categoria')}>Nueva categoría</Boton>
-            <Boton onClick={() => setEditando('nuevo')}>Nuevo producto</Boton>
+            <Boton variante="secundario" onClick={() => setEditando('categoria')}>{t('Nueva categoría')}</Boton>
+            <Boton onClick={() => setEditando('nuevo')}>{t('Nuevo producto')}</Boton>
           </div>
         )}
       >
-        Menú
+        {t('Menú')}
       </Titulo>
       <div className="mb-4"><Aviso>{error}</Aviso></div>
 
@@ -65,7 +66,7 @@ export default function Menu() {
           return (
             <section key={c.id} className="overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200">
               <h2 className="border-b border-stone-200 bg-stone-50 px-4 py-2 text-sm font-semibold text-stone-700">{c.nombre}</h2>
-              {lista.length === 0 && <p className="px-4 py-3 text-sm text-stone-500">Sin productos</p>}
+              {lista.length === 0 && <p className="px-4 py-3 text-sm text-stone-500">{t('Sin productos')}</p>}
               <ul className="divide-y divide-stone-100">
                 {lista.map((p) => (
                   <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -76,9 +77,9 @@ export default function Menu() {
                     <span className="w-24 text-right font-semibold">{pesos(p.precio)}</span>
                     <label className="flex w-32 cursor-pointer items-center gap-2 text-sm">
                       <input type="checkbox" checked={p.disponible} onChange={() => cambiarDisponible(p)} className="h-4 w-4 accent-marca-600" />
-                      {p.disponible ? 'Disponible' : 'Agotado'}
+                      {p.disponible ? t('Disponible') : t('Agotado')}
                     </label>
-                    {esAdmin && <Boton variante="secundario" onClick={() => setEditando(p)}>Editar</Boton>}
+                    {esAdmin && <Boton variante="secundario" onClick={() => setEditando(p)}>{t('Editar')}</Boton>}
                   </li>
                 ))}
               </ul>
@@ -118,20 +119,20 @@ function FormularioProducto({ producto, categorias, alTerminar }: { producto?: P
 
   return (
     <form onSubmit={guardar} className="mb-6 space-y-4 rounded-2xl bg-white p-5 ring-1 ring-marca-500">
-      <h2 className="font-semibold">{producto ? `Editar ${producto.nombre}` : 'Nuevo producto'}</h2>
+      <h2 className="font-semibold">{producto ? t('Editar {nombre}', { nombre: producto.nombre }) : t('Nuevo producto')}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Campo etiqueta="Nombre" name="nombre" defaultValue={producto?.nombre} required minLength={2} maxLength={80} />
+        <Campo etiqueta={t('Nombre')} name="nombre" defaultValue={producto?.nombre} required minLength={2} maxLength={80} />
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-stone-700">Categoría</span>
+          <span className="mb-1 block text-sm font-medium text-stone-700">{t('Categoría')}</span>
           <select name="categoriaId" defaultValue={producto?.categoriaId} required className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm">
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </label>
-        <Campo etiqueta="Precio (pesos)" name="precio" type="number" min={0} step={100} defaultValue={producto?.precio} required />
-        <Campo etiqueta="Descripción" name="descripcion" defaultValue={producto?.descripcion ?? ''} maxLength={300} />
+        <Campo etiqueta={t('Precio (pesos)')} name="precio" type="number" min={0} step={100} defaultValue={producto?.precio} required />
+        <Campo etiqueta={t('Descripción')} name="descripcion" defaultValue={producto?.descripcion ?? ''} maxLength={300} />
         <Campo
           className="sm:col-span-2"
-          etiqueta="Sinónimos para el chatbot, separados por coma"
+          etiqueta={t('Sinónimos para el chatbot, separados por coma')}
           name="sinonimos"
           placeholder="burger, hamburguesa sencilla"
           defaultValue={producto?.sinonimos.join(', ')}
@@ -139,8 +140,8 @@ function FormularioProducto({ producto, categorias, alTerminar }: { producto?: P
       </div>
       <Aviso>{error}</Aviso>
       <div className="flex gap-2">
-        <Boton type="submit" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar'}</Boton>
-        <Boton type="button" variante="secundario" onClick={alTerminar}>Cancelar</Boton>
+        <Boton type="submit" disabled={enviando}>{enviando ? t('Guardando…') : t('Guardar')}</Boton>
+        <Boton type="button" variante="secundario" onClick={alTerminar}>{t('Cancelar')}</Boton>
       </div>
     </form>
   );
@@ -162,15 +163,15 @@ function FormularioCategoria({ alTerminar }: { alTerminar: () => void }) {
 
   return (
     <form onSubmit={guardar} className="mb-6 space-y-4 rounded-2xl bg-white p-5 ring-1 ring-marca-500">
-      <h2 className="font-semibold">Nueva categoría</h2>
+      <h2 className="font-semibold">{t('Nueva categoría')}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Campo etiqueta="Nombre" name="nombre" required minLength={2} maxLength={60} />
-        <Campo etiqueta="Orden en el menú" name="orden" type="number" min={0} defaultValue={0} />
+        <Campo etiqueta={t('Nombre')} name="nombre" required minLength={2} maxLength={60} />
+        <Campo etiqueta={t('Orden en el menú')} name="orden" type="number" min={0} defaultValue={0} />
       </div>
       <Aviso>{error}</Aviso>
       <div className="flex gap-2">
-        <Boton type="submit">Guardar</Boton>
-        <Boton type="button" variante="secundario" onClick={alTerminar}>Cancelar</Boton>
+        <Boton type="submit">{t('Guardar')}</Boton>
+        <Boton type="button" variante="secundario" onClick={alTerminar}>{t('Cancelar')}</Boton>
       </div>
     </form>
   );

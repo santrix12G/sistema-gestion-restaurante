@@ -4,6 +4,12 @@ export interface Config {
   corsOrigins: string[];
   jwtSecret: string;
   costoDomicilio: number;
+  /** Dirección de la aplicación web, para los enlaces que se envían por correo */
+  urlWeb: string;
+  /** Cloudflare Turnstile. Sin clave secreta, el inicio de sesión no pide captcha (desarrollo y pruebas) */
+  captcha: { turnstileSecret: string };
+  /** Correo con la API HTTP de Brevo (Render gratis bloquea SMTP). Sin clave, los enlaces solo se escriben en el log fuera de producción */
+  correo: { brevoApiKey: string; remitente: string; nombreRemitente: string };
   whatsapp: {
     proveedor: 'simulado' | 'meta' | 'twilio';
     verifyToken: string;
@@ -80,6 +86,10 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
   // Sin la clave del webhook, ningún pago se podría confirmar: mejor no arrancar
   if (env.MERCADOPAGO_ACCESS_TOKEN) exigir(env, ['MERCADOPAGO_WEBHOOK_SECRET'], 'MERCADOPAGO_ACCESS_TOKEN');
 
+  if (env.BREVO_API_KEY) exigir(env, ['CORREO_REMITENTE'], 'BREVO_API_KEY');
+
+  const corsOrigins = (env.CORS_ORIGINS ?? 'http://localhost:3000').split(',').map((o) => o.trim()).filter(Boolean);
+
   const urlPublica = (env.API_PUBLIC_URL ?? env.RENDER_EXTERNAL_URL ?? '').replace(/\/+$/, '');
 
   const costoDomicilio = Number(env.COSTO_DOMICILIO ?? 5000);
@@ -87,9 +97,12 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   return {
     puerto: Number(env.PORT ?? 4000),
-    corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:3000').split(',').map((o) => o.trim()).filter(Boolean),
+    corsOrigins,
     jwtSecret,
     costoDomicilio,
+    urlWeb: (env.APP_WEB_URL ?? corsOrigins[0] ?? 'http://localhost:3000').replace(/\/+$/, ''),
+    captcha: { turnstileSecret: env.TURNSTILE_SECRET_KEY ?? '' },
+    correo: { brevoApiKey: env.BREVO_API_KEY ?? '', remitente: env.CORREO_REMITENTE ?? '', nombreRemitente: env.CORREO_NOMBRE_REMITENTE ?? 'Restaurante' },
     whatsapp: {
       proveedor: proveedorWhatsapp,
       verifyToken: env.META_VERIFY_TOKEN ?? '',
