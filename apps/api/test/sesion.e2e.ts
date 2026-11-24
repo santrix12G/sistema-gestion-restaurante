@@ -169,3 +169,44 @@ describe('recuperar la contraseña', () => {
     expect((await api().get('/api/auth/yo').set({ Authorization: `Bearer ${sesion}` })).status).toBe(401);
   });
 });
+
+describe('cambiar la propia contraseña', () => {
+  const horas = (token: string) => {
+    const { iat, exp } = app.get(JwtService).decode<{ iat: number; exp: number }>(token);
+    return (exp - iat) / 3600;
+  };
+
+  it('exige sesión', async () => {
+    expect((await api().post('/api/auth/contrasena').send({ actual: 'Clave-admin-4', nueva: 'Clave-propia-5' })).status).toBe(401);
+  });
+
+  it('con la actual equivocada responde 400 (no 401, para no cerrar la sesión) y rechaza una nueva débil o igual', async () => {
+    const yo = (await api().post('/api/auth/login').send({ email: EMAIL, password: 'Clave-admin-4' })).body.token;
+    const auth = { Authorization: `Bearer ${yo}` };
+    const mala = await api().post('/api/auth/contrasena').set(auth).send({ actual: 'No-es-esta-1', nueva: 'Clave-propia-5' });
+    expect(mala.status).toBe(400);
+    expect(mala.body.mensaje).toMatch(/actual no es correcta/);
+    expect((await api().post('/api/auth/contrasena').set(auth).send({ actual: 'Clave-admin-4', nueva: 'sololetras' })).status).toBe(400);
+    const igual = await api().post('/api/auth/contrasena').set(auth).send({ actual: 'Clave-admin-4', nueva: 'Clave-admin-4' });
+    expect(igual.status).toBe(400);
+    expect(igual.body.mensaje).toMatch(/distinta/);
+    expect((await api().get('/api/auth/yo').set(auth)).status).toBe(200);
+  });
+
+  it('cambia la contraseña, cierra las otras sesiones y entrega una sesión nueva que conserva la duración', async () => {
+    const otroEquipo = (await api().post('/api/auth/login').send({ email: EMAIL, password: 'Clave-admin-4' })).body.token;
+    const este = (await api().post('/api/auth/login').send({ email: EMAIL, password: 'Clave-admin-4', recordar: true })).body.token;
+    await esperar(1100);
+
+    const res = await api().post('/api/auth/contrasena').set({ Authorization: `Bearer ${este}` }).send({ actual: 'Clave-admin-4', nueva: 'Clave-propia-5', recordar: true });
+    expect(res.status).toBe(200);
+    expect(res.body.usuario.email).toBe(EMAIL);
+    expect(horas(res.body.token)).toBe(30 * 24);
+
+    expect((await api().get('/api/auth/yo').set({ Authorization: `Bearer ${otroEquipo}` })).status).toBe(401);
+    expect((await api().get('/api/auth/yo').set({ Authorization: `Bearer ${este}` })).status).toBe(401);
+    expect((await api().get('/api/auth/yo').set({ Authorization: `Bearer ${res.body.token}` })).status).toBe(200);
+    expect((await api().post('/api/auth/login').send({ email: EMAIL, password: 'Clave-admin-4' })).status).toBe(401);
+    expect((await api().post('/api/auth/login').send({ email: EMAIL, password: 'Clave-propia-5' })).status).toBe(200);
+  });
+});

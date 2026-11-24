@@ -12,6 +12,8 @@ interface ContextoSesion {
   lista: boolean;
   /** `recordar`: mantener la sesión al cerrar la app (se guarda cifrada en el celular, 30 días) */
   iniciar: (email: string, password: string, recordar: boolean) => Promise<UsuarioSesion>;
+  /** Cambia la contraseña propia: la API cierra las otras sesiones y entrega una nueva para este celular */
+  cambiarContrasena: (actual: string, nueva: string) => Promise<void>;
   salir: () => void;
 }
 
@@ -20,6 +22,8 @@ const Contexto = createContext<ContextoSesion | null>(null);
 export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [lista, setLista] = useState(false);
+  // Si la sesión quedó guardada en el celular («mantener la sesión iniciada»)
+  const [recordada, setRecordada] = useState(false);
 
   const salir = useCallback(() => {
     setSesion(null);
@@ -29,7 +33,10 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   useEffect(() => {
     void leer().then((guardada) => {
       try {
-        if (guardada) setSesion(JSON.parse(guardada) as Sesion);
+        if (guardada) {
+          setSesion(JSON.parse(guardada) as Sesion);
+          setRecordada(true);
+        }
       } catch {
         // Sesión dañada: se pide iniciar de nuevo
       }
@@ -51,11 +58,21 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     configurarSesionApi(nueva.token, salir);
     // Sin «mantener la sesión», no se guarda: dura mientras la app esté abierta (y máximo 12 horas)
     await escribir(recordar ? JSON.stringify(nueva) : null);
+    setRecordada(recordar);
     setSesion(nueva);
     return nueva.usuario;
   }, [salir]);
 
-  return <Contexto.Provider value={{ sesion, lista, iniciar, salir }}>{children}</Contexto.Provider>;
+  const cambiarContrasena = useCallback(async (actual: string, nueva: string) => {
+    // La sesión nueva dura lo mismo que la de ahora: 30 días si estaba guardada, 12 horas si no
+    const { token, usuario } = await llamar<Sesion>('/auth/contrasena', { metodo: 'POST', cuerpo: { actual, nueva, recordar: recordada } });
+    const renovada = { token, usuario };
+    configurarSesionApi(token, salir);
+    if (recordada) await escribir(JSON.stringify(renovada));
+    setSesion(renovada);
+  }, [recordada, salir]);
+
+  return <Contexto.Provider value={{ sesion, lista, iniciar, cambiarContrasena, salir }}>{children}</Contexto.Provider>;
 }
 
 export function useSesion() {

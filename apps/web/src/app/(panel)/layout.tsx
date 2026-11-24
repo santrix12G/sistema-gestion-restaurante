@@ -153,14 +153,18 @@ function TarjetaUsuario({ usuario, salir }: { usuario: UsuarioSesion; salir: () 
   const rol = t(NOMBRE_ROL[usuario.rol]);
   return (
     <div className="flex items-center gap-3 border-t border-stone-200 px-4 py-4">
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-stone-100 text-sm font-semibold text-stone-700" aria-hidden>
-        {iniciales(usuario.nombre)}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{usuario.nombre}</p>
-        {/* El administrador del seed se llama "Administrador": no se repite */}
-        {usuario.nombre !== rol && <p className="truncate text-xs text-stone-500">{rol}</p>}
-      </div>
+      {/* Abre «Mi cuenta», donde cada quien cambia su contraseña */}
+      <Link href="/cuenta" className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 hover:bg-stone-100">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-stone-100 text-sm font-semibold text-stone-700" aria-hidden>
+          {iniciales(usuario.nombre)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{usuario.nombre}</p>
+          {/* El administrador del seed se llama "Administrador": no se repite */}
+          {usuario.nombre !== rol && <p className="truncate text-xs text-stone-500">{rol}</p>}
+          <p className="truncate text-xs font-medium text-marca-700 underline">{t('Mi cuenta')}</p>
+        </div>
+      </Link>
       <button onClick={salir} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-900" aria-label={t('Cerrar sesión')} title={t('Cerrar sesión')}>
         <LogOut className="size-[18px]" aria-hidden />
       </button>

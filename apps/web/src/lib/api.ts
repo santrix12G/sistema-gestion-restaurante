@@ -26,6 +26,15 @@ export function leerSesionGuardada<T>(): T | null {
   }
 }
 
+/** true si la sesión de este equipo se guardó con «mantener la sesión iniciada» */
+export function sesionRecordada() {
+  try {
+    return localStorage.getItem(CLAVE_SESION) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function guardarSesion(sesion: unknown | null, recordar = false) {
   try {
     sessionStorage.removeItem(CLAVE_SESION);

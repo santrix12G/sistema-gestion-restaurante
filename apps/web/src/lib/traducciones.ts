@@ -523,4 +523,14 @@ export const EN: Record<string, string> = {
   'Uno de los productos ya no existe en el menú': 'One of the products is no longer on the menu',
   'El teléfono no es válido. Escribe un celular de 10 dígitos o un número con indicativo, como +57':
     'The phone number is not valid. Enter a 10-digit mobile number or a number with country code, such as +57',
+
+  // Mi cuenta
+  'Mi cuenta': 'My account',
+  'Cambiar la contraseña': 'Change password',
+  'Contraseña actual': 'Current password',
+  'Al cambiarla se cierra tu sesión en los demás equipos; en este sigues dentro.':
+    'Changing it signs you out on your other devices; you stay signed in on this one.',
+  'Contraseña actualizada. Se cerró la sesión en los demás equipos': 'Password updated. You were signed out on your other devices',
+  'La contraseña actual no es correcta': 'The current password is not correct',
+  'La nueva contraseña debe ser distinta de la actual': 'The new password must be different from the current one',
 };

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
-import { Alert, Platform, Pressable, Text } from 'react-native';
+import { router, Tabs } from 'expo-router';
+import { Alert, Platform, Pressable, Text, View } from 'react-native';
 import { COLOR } from '@/components/ui';
 import { useSesion, useUsuario } from '@/lib/sesion';
 
@@ -29,6 +29,15 @@ function BotonSalir() {
   );
 }
 
+/** Abre «Mi cuenta», donde se cambia la contraseña */
+function BotonCuenta() {
+  return (
+    <Pressable onPress={() => router.push('/cuenta')} accessibilityRole="button" accessibilityLabel="Mi cuenta" hitSlop={12} style={{ paddingLeft: 16 }}>
+      <Ionicons name="person-circle-outline" size={26} color={COLOR.suave} />
+    </Pressable>
+  );
+}
+
 export default function LayoutApp() {
   const rol = useUsuario()?.rol;
   const atiendeMesas = rol === 'MESERO' || rol === 'ADMIN';
@@ -40,7 +49,12 @@ export default function LayoutApp() {
         tabBarActiveTintColor: COLOR.marca,
         tabBarLabelStyle: { fontSize: 13, fontWeight: '600' },
         headerTitleStyle: { fontWeight: '800' },
-        headerRight: () => <BotonSalir />,
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <BotonCuenta />
+            <BotonSalir />
+          </View>
+        ),
         sceneStyle: { backgroundColor: COLOR.fondo },
       }}
     >
@@ -62,6 +76,8 @@ export default function LayoutApp() {
           tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color as string} />,
         }}
       />
+      {/* Sin pestaña: se abre con el botón de la cuenta en el encabezado */}
+      <Tabs.Screen name="cuenta" options={{ title: 'Mi cuenta', href: null }} />
       <Tabs.Screen
         name="domicilios"
         options={{

@@ -13,6 +13,7 @@ const PANEL = [
   { ruta: '/mesas', texto: 'Mesas' },
   { ruta: '/personal', texto: 'Personal' },
   { ruta: '/estadisticas', texto: 'Estadísticas' },
+  { ruta: '/cuenta', texto: 'Mi cuenta' },
 ];
 
 export default function MapaDelSitio() {
