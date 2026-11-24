@@ -13,6 +13,7 @@ import { coincide } from '@/lib/buscar';
 import { useCambiarEstado } from '@/lib/cambiar-estado';
 import { destino, hora, NOMBRE_ESTADO, pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
+import { plural, t } from '@/lib/i18n';
 import { useSesion } from '@/lib/sesion';
 import { useTiempoReal } from '@/lib/tiempo-real';
 import { EstadoCaja, MetodoCobro, Pedido, UsuarioSesion } from '@/lib/tipos';
@@ -40,16 +41,16 @@ function puedeCerrar(p: Pedido, u: UsuarioSesion) {
 function columnasPara(u: UsuarioSesion): Columna[] {
   if (u.rol === 'REPARTIDOR') {
     return [
-      { clave: 'mios', titulo: 'Llevando yo', icono: Bike, filtro: (p) => p.entrega?.repartidor?.id === u.id, vacia: 'No llevas ningún domicilio' },
-      { clave: 'libres', titulo: 'Disponibles para llevar', icono: ShoppingBag, filtro: (p) => !p.entrega?.repartidor, vacia: 'No hay domicilios esperando' },
+      { clave: 'mios', titulo: t('Llevando yo'), icono: Bike, filtro: (p) => p.entrega?.repartidor?.id === u.id, vacia: t('No llevas ningún domicilio') },
+      { clave: 'libres', titulo: t('Disponibles para llevar'), icono: ShoppingBag, filtro: (p) => !p.entrega?.repartidor, vacia: t('No hay domicilios esperando') },
     ];
   }
   const columnas: Columna[] = [
-    { clave: 'mesa', titulo: 'En mesa', icono: Store, filtro: (p) => p.tipo === 'MESA', vacia: 'Sin pedidos' },
-    { clave: 'recoger', titulo: 'Para recoger', icono: ShoppingBag, filtro: (p) => p.tipo === 'RECOGER', vacia: 'Sin pedidos' },
+    { clave: 'mesa', titulo: t('En mesa'), icono: Store, filtro: (p) => p.tipo === 'MESA', vacia: t('Sin pedidos') },
+    { clave: 'recoger', titulo: t('Para recoger'), icono: ShoppingBag, filtro: (p) => p.tipo === 'RECOGER', vacia: t('Sin pedidos') },
   ];
   // Los domicilios llegan por el chatbot: el mesero no los registra
-  if (u.rol === 'ADMIN') columnas.push({ clave: 'domicilio', titulo: 'Domicilios', icono: Bike, filtro: (p) => p.tipo === 'DOMICILIO', vacia: 'Sin pedidos' });
+  if (u.rol === 'ADMIN') columnas.push({ clave: 'domicilio', titulo: t('Domicilios'), icono: Bike, filtro: (p) => p.tipo === 'DOMICILIO', vacia: t('Sin pedidos') });
   return columnas;
 }
 
@@ -83,15 +84,20 @@ export default function Pedidos() {
   async function cobrar(p: Pedido, metodo: MetodoCobro, { recibido, imprimir: conTiquete }: { recibido?: number; imprimir: boolean }) {
     setCobrando(undefined);
     const enLinea = p.pagos?.[0]?.estado === 'APROBADO';
-    const como = enLinea ? 'en línea' : `con ${METODOS.find((m) => m.metodo === metodo)!.texto.toLowerCase()}`;
+    const como = enLinea ? t('en línea') : t('con {metodo}', { metodo: t(METODOS.find((m) => m.metodo === metodo)!.texto).toLowerCase() });
     if (!(await cambiar(p.id, 'PAGADO', metodo))) return void recargarCaja();
-    avisar(`Pedido #${p.numero} pagado ${como}`);
+    avisar(t('Pedido #{numero} pagado {como}', { numero: p.numero, como }));
     if (conTiquete) await imprimir(<TiqueteCliente pedido={p} cobro={{ metodo: enLinea ? 'ONLINE' : metodo, recibido }} />);
   }
 
   async function cancelar(p: Pedido) {
-    const si = await confirmar({ titulo: `¿Cancelar el pedido #${p.numero}?`, detalle: 'El pedido pasa a cancelados y no se puede reabrir.', aceptar: 'Cancelar pedido', peligro: true });
-    if (si && (await cambiar(p.id, 'CANCELADO'))) avisar(`Pedido #${p.numero} cancelado`);
+    const si = await confirmar({
+      titulo: t('¿Cancelar el pedido #{numero}?', { numero: p.numero }),
+      detalle: t('El pedido pasa a cancelados y no se puede reabrir.'),
+      aceptar: t('Cancelar pedido'),
+      peligro: true,
+    });
+    if (si && (await cambiar(p.id, 'CANCELADO'))) avisar(t('Pedido #{numero} cancelado', { numero: p.numero }));
   }
 
   function acciones(p: Pedido) {
@@ -102,9 +108,9 @@ export default function Pedidos() {
     return (
       <>
         {usuario.rol === 'REPARTIDOR' && libre && (
-          <Boton className="flex-1" onClick={async () => (await tomar(p.id)) && avisar(`Llevas el domicilio #${p.numero}`)} disabled={deshabilitado}>
+          <Boton className="flex-1" onClick={async () => (await tomar(p.id)) && avisar(t('Llevas el domicilio #{numero}', { numero: p.numero }))} disabled={deshabilitado}>
             <Bike className="size-4" aria-hidden />
-            Llevar domicilio
+            {t('Llevar domicilio')}
           </Boton>
         )}
         <BotonesImpresion pedido={p} conComanda={usuario.rol !== 'REPARTIDOR'} />
@@ -112,11 +118,11 @@ export default function Pedidos() {
           <>
             <Boton variante="exito" className="flex-1" disabled={deshabilitado} onClick={() => setCobrando(p)}>
               <Check className="size-4" aria-hidden />
-              {domicilio ? 'Entregado y pagado' : 'Pagado'}
+              {domicilio ? t('Entregado y pagado') : t('Pagado')}
             </Boton>
             <Boton variante="peligro" disabled={deshabilitado} onClick={() => cancelar(p)}>
               <X className="size-4" aria-hidden />
-              Cancelar
+              {t('Cancelar')}
             </Boton>
           </>
         )}
@@ -124,19 +130,19 @@ export default function Pedidos() {
     );
   }
 
-  const titulo = usuario.rol === 'ADMIN' ? 'Pedidos' : usuario.rol === 'REPARTIDOR' ? 'Mis domicilios' : 'Mis pedidos';
-  const pestanaCerrados = usuario.rol === 'ADMIN' ? 'Pagados y cancelados hoy' : 'Mi historial de hoy';
+  const titulo = t(usuario.rol === 'ADMIN' ? 'Pedidos' : usuario.rol === 'REPARTIDOR' ? 'Mis domicilios' : 'Mis pedidos');
+  const pestanaCerrados = t(usuario.rol === 'ADMIN' ? 'Pagados y cancelados hoy' : 'Mi historial de hoy');
 
   return (
     <>
       <Titulo
-        detalle={pedidos && vista === 'activos' ? `${enVista.length} ${enVista.length === 1 ? 'pedido abierto' : 'pedidos abiertos'}` : undefined}
+        detalle={pedidos && vista === 'activos' ? plural(enVista.length, 'pedido abierto', 'pedidos abiertos') : undefined}
         accion={
           atiende && (
             <Link href="/pedidos/nuevo">
               <Boton>
                 <CirclePlus className="size-4" aria-hidden />
-                Nuevo pedido
+                {t('Nuevo pedido')}
               </Boton>
             </Link>
           )
@@ -154,24 +160,24 @@ export default function Pedidos() {
               onClick={() => setVista(v)}
               className={`rounded-lg px-4 py-1.5 ${vista === v ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
             >
-              {v === 'activos' ? 'Activos' : pestanaCerrados}
+              {v === 'activos' ? t('Activos') : pestanaCerrados}
             </button>
           ))}
         </div>
         <label className="relative w-full sm:w-80">
-          <span className="sr-only">Buscar pedidos</span>
+          <span className="sr-only">{t('Buscar pedidos')}</span>
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-400" aria-hidden />
           <input
             type="search"
             value={consulta}
             onChange={(e) => setConsulta(e.target.value)}
-            placeholder="Buscar: M3, #12, cliente, producto…"
+            placeholder={t('Buscar: M3, #12, cliente, producto…')}
             className="w-full rounded-xl border border-stone-300 bg-white py-2 pr-3 pl-9 text-sm outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
           />
         </label>
         {buscando && pedidos && (
           <span className="text-sm text-stone-500">
-            {hallados.length} de {enVista.length}
+            {t('{n} de {total}', { n: hallados.length, total: enVista.length })}
           </span>
         )}
         {vista === 'activos' && <LeyendaEspera />}
@@ -180,16 +186,16 @@ export default function Pedidos() {
         {caja && !caja.abierta && vista === 'activos' && (
           <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
             <TriangleAlert className="size-4 shrink-0" aria-hidden />
-            <strong>La caja está cerrada:</strong>
+            <strong>{t('La caja está cerrada:')}</strong>
             {usuario.rol === 'ADMIN' ? (
               <>
-                no se puede cobrar hasta abrirla.
+                {t('no se puede cobrar hasta abrirla.')}
                 <Link href="/caja" className="font-semibold underline">
-                  Abrir caja
+                  {t('Abrir caja')}
                 </Link>
               </>
             ) : (
-              'no se puede cobrar hasta que el administrador la abra.'
+              t('no se puede cobrar hasta que el administrador la abra.')
             )}
           </p>
         )}
@@ -215,7 +221,7 @@ export default function Pedidos() {
                 <div className="space-y-3">
                   {lista.map((p) => <TarjetaPedido key={p.id} pedido={p} acciones={acciones(p)} />)}
                   {lista.length === 0 && (
-                    <p className="px-1 py-4 text-center text-xs text-stone-500">{buscando ? 'Nada coincide con la búsqueda' : c.vacia}</p>
+                    <p className="px-1 py-4 text-center text-xs text-stone-500">{buscando ? t('Nada coincide con la búsqueda') : c.vacia}</p>
                   )}
                 </div>
               </section>
@@ -240,16 +246,16 @@ export default function Pedidos() {
 
 function Cerrados({ pedidos, buscando }: { pedidos: Pedido[]; buscando: boolean }) {
   if (pedidos.length === 0) {
-    return <Vacio>{buscando ? 'Ningún pedido de hoy coincide con la búsqueda.' : 'Hoy no se ha pagado ni cancelado ningún pedido.'}</Vacio>;
+    return <Vacio>{buscando ? t('Ningún pedido de hoy coincide con la búsqueda.') : t('Hoy no se ha pagado ni cancelado ningún pedido.')}</Vacio>;
   }
   const pagados = pedidos.filter((p) => p.estado === 'PAGADO');
   const cancelados = pedidos.length - pagados.length;
   return (
     <>
       <p className="mb-3 text-sm text-stone-600">
-        <span className="font-semibold text-stone-900">{pesos(pagados.reduce((suma, p) => suma + p.total, 0))}</span> cobrados en{' '}
-        {pagados.length} {pagados.length === 1 ? 'pedido' : 'pedidos'}
-        {cancelados > 0 && ` · ${cancelados} ${cancelados === 1 ? 'cancelado' : 'cancelados'}`}
+        <span className="font-semibold text-stone-900">{pesos(pagados.reduce((suma, p) => suma + p.total, 0))}</span> {t('cobrados en')}{' '}
+        {plural(pagados.length, 'pedido', 'pedidos')}
+        {cancelados > 0 && ` · ${plural(cancelados, 'cancelado', 'cancelados')}`}
       </p>
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200">
         <ul className="divide-y divide-stone-100">
@@ -258,7 +264,7 @@ function Cerrados({ pedidos, buscando }: { pedidos: Pedido[]; buscando: boolean 
               <details>
                 <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1">
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.estado === 'PAGADO' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                    {NOMBRE_ESTADO[p.estado]}
+                    {t(NOMBRE_ESTADO[p.estado])}
                   </span>
                   <span className="flex-1 font-medium">
                     #{p.numero} · {destino(p)} <span className="font-normal text-stone-500">· {hora(p.actualizadoEn)}</span>
@@ -280,12 +286,12 @@ function Cerrados({ pedidos, buscando }: { pedidos: Pedido[]; buscando: boolean 
 /** Qué significa el color de cada tarjeta */
 function LeyendaEspera() {
   const niveles = [
-    { clase: 'bg-emerald-500', texto: `Menos de ${MINUTOS_ATENCION} min` },
-    { clase: 'bg-amber-500', texto: `${MINUTOS_ATENCION} a ${MINUTOS_DEMORA} min` },
-    { clase: 'bg-red-500', texto: `Más de ${MINUTOS_DEMORA} min` },
+    { clase: 'bg-emerald-500', texto: t('Menos de {n} min', { n: MINUTOS_ATENCION }) },
+    { clase: 'bg-amber-500', texto: t('{a} a {b} min', { a: MINUTOS_ATENCION, b: MINUTOS_DEMORA }) },
+    { clase: 'bg-red-500', texto: t('Más de {n} min', { n: MINUTOS_DEMORA }) },
   ];
   return (
-    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 sm:ml-auto" aria-label="Tiempo de espera">
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 sm:ml-auto" aria-label={t('Tiempo de espera')}>
       {niveles.map((n) => (
         <li key={n.texto} className="flex items-center gap-1.5">
           <span className={`size-2.5 rounded-full ${n.clase}`} aria-hidden />
@@ -302,14 +308,14 @@ function BotonesImpresion({ pedido, conComanda }: { pedido: Pedido; conComanda: 
   return (
     <div className="flex w-full gap-2">
       {conComanda && (
-        <Boton variante="secundario" className="flex-1 py-1.5 text-xs" onClick={() => imprimir(<Comanda pedido={pedido} />)} title="Imprimir la comanda para la cocina">
+        <Boton variante="secundario" className="flex-1 py-1.5 text-xs" onClick={() => imprimir(<Comanda pedido={pedido} />)} title={t('Imprimir la comanda para la cocina')}>
           <ChefHat className="size-4" aria-hidden />
-          Comanda
+          {t('Comanda')}
         </Boton>
       )}
-      <Boton variante="secundario" className="flex-1 py-1.5 text-xs" onClick={() => imprimir(<TiqueteCliente pedido={pedido} />)} title="Imprimir el tiquete del cliente">
+      <Boton variante="secundario" className="flex-1 py-1.5 text-xs" onClick={() => imprimir(<TiqueteCliente pedido={pedido} />)} title={t('Imprimir el tiquete del cliente')}>
         <ReceiptText className="size-4" aria-hidden />
-        Tiquete
+        {t('Tiquete')}
       </Boton>
     </div>
   );

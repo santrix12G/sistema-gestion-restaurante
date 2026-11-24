@@ -1,4 +1,6 @@
 import { ComponentProps, InputHTMLAttributes, ReactNode } from 'react';
+import { NOMBRE_RESTAURANTE } from '@/components/marca';
+import { t } from '@/lib/i18n';
 
 const VARIANTES = {
   primario: 'bg-marca-600 text-white hover:bg-marca-700 disabled:bg-stone-300',
@@ -37,6 +39,8 @@ export function Aviso({ children }: { children?: ReactNode }) {
 export function Titulo({ children, accion, detalle }: { children: ReactNode; accion?: ReactNode; detalle?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      {/* React 19 lleva el <title> al <head>: la pestaña dice en qué pantalla se está */}
+      {typeof children === 'string' && <title>{`${children} · ${NOMBRE_RESTAURANTE}`}</title>}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{children}</h1>
         {detalle && <p className="mt-1 text-sm text-stone-500">{detalle}</p>}
@@ -47,7 +51,7 @@ export function Titulo({ children, accion, detalle }: { children: ReactNode; acc
 }
 
 export function Cargando() {
-  return <p className="py-10 text-center text-sm text-stone-500">Cargando…</p>;
+  return <p className="py-10 text-center text-sm text-stone-500">{t('Cargando…')}</p>;
 }
 
 export function Vacio({ children }: { children: ReactNode }) {

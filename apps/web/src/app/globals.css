@@ -13,6 +13,52 @@ body {
   @apply bg-stone-100 text-stone-900 antialiased;
 }
 
+/* Foco visible en todo lo que se maneja con el teclado (WCAG 2.4.7) */
+:focus-visible {
+  outline: 2px solid var(--color-marca-600);
+  outline-offset: 2px;
+}
+
+/*
+ * Contraste alto: oscurece los grises, el color de la marca y los colores de estado, pone el fondo
+ * blanco y subraya los enlaces. Tailwind pinta con estas variables, así que toda la página cambia.
+ */
+html[data-contraste='alto'] {
+  --color-stone-300: #57534e;
+  --color-stone-400: #292524;
+  --color-stone-500: #1c1917;
+  --color-stone-600: #0c0a09;
+  --color-stone-700: #0c0a09;
+  --color-stone-800: #000;
+  --color-stone-900: #000;
+  --color-marca-500: #7c2d12;
+  --color-marca-600: #7c2d12;
+  --color-marca-700: #431407;
+  --color-red-600: #7f1d1d;
+  --color-red-700: #7f1d1d;
+  --color-red-800: #450a0a;
+  --color-emerald-600: #064e3b;
+  --color-emerald-700: #064e3b;
+  --color-emerald-800: #022c22;
+  --color-amber-700: #451a03;
+  --color-amber-800: #451a03;
+  --color-amber-900: #451a03;
+  --color-sky-600: #082f49;
+  --color-sky-700: #082f49;
+  --color-sky-800: #082f49;
+}
+html[data-contraste='alto'] body {
+  background: #fff;
+}
+html[data-contraste='alto'] a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+html[data-contraste='alto'] :focus-visible {
+  outline: 3px solid #000;
+  outline-offset: 3px;
+}
+
 /* Impresión en tirilla de 80 mm: sin márgenes de página y con el ancho útil de la impresora térmica (72 mm) */
 @media print {
   @page {

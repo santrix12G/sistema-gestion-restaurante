@@ -2,6 +2,7 @@
 
 import { CircleAlert, CircleCheck, TriangleAlert, X } from 'lucide-react';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { t } from '@/lib/i18n';
 import { Boton } from './ui';
 
 type TipoAviso = 'exito' | 'error';
@@ -71,7 +72,7 @@ export function ProveedorAvisos({ children }: { children: ReactNode }) {
           >
             {a.tipo === 'exito' ? <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden /> : <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />}
             <span className="flex-1">{a.texto}</span>
-            <button onClick={() => cerrar(a.id)} className="opacity-60 hover:opacity-100" aria-label="Cerrar aviso">
+            <button onClick={() => cerrar(a.id)} className="opacity-60 hover:opacity-100" aria-label={t('Cerrar aviso')}>
               <X className="size-4" aria-hidden />
             </button>
           </div>
@@ -113,7 +114,7 @@ function Dialogo({ pregunta, responder }: { pregunta: Confirmacion; responder: (
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <Boton ref={volver} variante="secundario" onClick={() => responder(false)}>{pregunta.cancelar ?? 'Volver'}</Boton>
+          <Boton ref={volver} variante="secundario" onClick={() => responder(false)}>{pregunta.cancelar ?? t('Volver')}</Boton>
           <Boton variante={pregunta.peligro ? 'peligroLleno' : 'primario'} onClick={() => responder(true)}>{pregunta.aceptar}</Boton>
         </div>
       </div>

@@ -13,7 +13,8 @@ interface ContextoSesion {
   usuario: UsuarioSesion | null;
   /** false mientras se lee la sesión guardada: evita redirigir al login antes de tiempo */
   lista: boolean;
-  iniciar: (email: string, password: string) => Promise<UsuarioSesion>;
+  /** `recordar`: mantener la sesión iniciada en este equipo. `captcha`: respuesta de Turnstile */
+  iniciar: (datos: { email: string; password: string; recordar: boolean; captcha?: string }) => Promise<UsuarioSesion>;
   salir: () => void;
 }
 
@@ -28,9 +29,9 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     setLista(true);
   }, []);
 
-  const iniciar = useCallback(async (email: string, password: string) => {
-    const sesion = await llamar<Sesion>('/auth/login', { metodo: 'POST', cuerpo: { email, password } });
-    guardarSesion(sesion);
+  const iniciar = useCallback(async (datos: { email: string; password: string; recordar: boolean; captcha?: string }) => {
+    const sesion = await llamar<Sesion>('/auth/login', { metodo: 'POST', cuerpo: datos });
+    guardarSesion(sesion, datos.recordar);
     setUsuario(sesion.usuario);
     return sesion.usuario;
   }, []);

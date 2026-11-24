@@ -9,6 +9,7 @@ import { Aviso, Cargando, Titulo, Vacio } from '@/components/ui';
 import { llamar } from '@/lib/api';
 import { pesos } from '@/lib/formato';
 import { useDatos } from '@/lib/hooks';
+import { t } from '@/lib/i18n';
 import { useSesion } from '@/lib/sesion';
 import { useTiempoReal } from '@/lib/tiempo-real';
 import { EstadisticasDia } from '@/lib/tipos';
@@ -33,11 +34,11 @@ export default function Estadisticas() {
   return (
     <>
       <Titulo
-        detalle={vista === 'dia' ? 'Lo vendido, lo cancelado y lo más vendido de un día.' : 'Ventas, productos, personal y tiempos de varios días.'}
+        detalle={vista === 'dia' ? t('Lo vendido, lo cancelado y lo más vendido de un día.') : t('Ventas, productos, personal y tiempos de varios días.')}
         accion={
           vista === 'dia' && (
             <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
-              Día
+              {t('Día')}
               <input
                 type="date"
                 className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
@@ -49,7 +50,7 @@ export default function Estadisticas() {
           )
         }
       >
-        Estadísticas
+        {t('Estadísticas')}
       </Titulo>
       <div className="mb-5 inline-flex rounded-xl bg-stone-200/70 p-1" role="tablist">
         {VISTAS.map(({ clave, texto, icono: Icono }) => (
@@ -61,7 +62,7 @@ export default function Estadisticas() {
             className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ${vista === clave ? 'bg-white shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
           >
             <Icono className="size-4" aria-hidden />
-            {texto}
+            {t(texto)}
           </button>
         ))}
       </div>
@@ -82,24 +83,24 @@ function ResumenDia({ fecha }: { fecha: string }) {
   if (!datos) return error ? <Aviso>{error}</Aviso> : <Cargando />;
   const { ventas, cancelados, activos, porTipo, porCanal, porHora, horaPico, masVendidos } = datos;
   const maxUnidades = Math.max(...masVendidos.map((p) => p.cantidad), 1);
-  const sinVentas = `Aún no hay ventas ${esHoy ? 'hoy' : 'ese día'}`;
+  const sinVentas = esHoy ? t('Aún no hay ventas hoy') : t('Aún no hay ventas ese día');
 
   return (
     <div className="space-y-4">
       <Aviso>{error}</Aviso>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Cifra titulo="Vendido" valor={pesos(ventas.total)} detalle={plural(ventas.pedidos, 'pedido pagado', 'pedidos pagados')} destacada />
-        <Cifra titulo="Promedio por pedido" valor={pesos(ventas.promedio)} detalle={plural(ventas.platos, 'producto vendido', 'productos vendidos')} />
-        <Cifra titulo="Cancelados" valor={String(cancelados.pedidos)} detalle={`${pesos(cancelados.total)} que no se cobraron`} />
+        <Cifra titulo={t('Vendido')} valor={pesos(ventas.total)} detalle={plural(ventas.pedidos, 'pedido pagado', 'pedidos pagados')} destacada />
+        <Cifra titulo={t('Promedio por pedido')} valor={pesos(ventas.promedio)} detalle={plural(ventas.platos, 'producto vendido', 'productos vendidos')} />
+        <Cifra titulo={t('Cancelados')} valor={String(cancelados.pedidos)} detalle={t('{valor} que no se cobraron', { valor: pesos(cancelados.total) })} />
         {activos ? (
-          <Cifra titulo="Abiertos ahora" valor={String(activos.pedidos)} detalle={`${pesos(activos.total)} por cobrar`} />
+          <Cifra titulo={t('Abiertos ahora')} valor={String(activos.pedidos)} detalle={t('{valor} por cobrar', { valor: pesos(activos.total) })} />
         ) : (
-          <Cifra titulo="Abiertos ahora" valor="—" detalle="Solo se muestra para hoy" />
+          <Cifra titulo={t('Abiertos ahora')} valor="—" detalle={t('Solo se muestra para hoy')} />
         )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel titulo="Más vendidos">
+        <Panel titulo={t('Más vendidos')}>
           {masVendidos.length === 0 ? (
             <Vacio>{sinVentas}</Vacio>
           ) : (
@@ -112,7 +113,7 @@ function ResumenDia({ fecha }: { fecha: string }) {
                       {p.nombre}
                     </span>
                     <span className="shrink-0 text-stone-600">
-                      <strong className="text-stone-900">{p.cantidad}</strong> {p.cantidad === 1 ? 'unidad' : 'unidades'} · {pesos(p.total)}
+                      <strong className="text-stone-900">{p.cantidad}</strong> {t(p.cantidad === 1 ? 'unidad' : 'unidades')} · {pesos(p.total)}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-stone-100">
@@ -124,21 +125,21 @@ function ResumenDia({ fecha }: { fecha: string }) {
           )}
         </Panel>
 
-        <Panel titulo="Horas pico" detalle={horaPico !== null ? `Más pedidos a las ${nombreHora(horaPico)}` : undefined}>
+        <Panel titulo={t('Horas pico')} detalle={horaPico !== null ? t('Más pedidos a las {hora}', { hora: nombreHora(horaPico) }) : undefined}>
           <HorasPico porHora={porHora} horaPico={horaPico} sinVentas={sinVentas} />
         </Panel>
 
-        <Panel titulo="Ventas por canal" detalle={parteDelChatbot(porCanal, ventas.total)}>
+        <Panel titulo={t('Ventas por canal')} detalle={parteDelChatbot(porCanal, ventas.total)}>
           <VentasPorCanal porCanal={porCanal} />
         </Panel>
 
-        <Panel titulo="Ventas por tipo de pedido">
+        <Panel titulo={t('Ventas por tipo de pedido')}>
           <VentasPorTipo porTipo={porTipo} />
         </Panel>
       </div>
       <p className="text-xs text-stone-500">
-        Un pedido cuenta el día en que se cobró o se canceló. Lo vendido incluye el costo de los domicilios; los cancelados no suman a ninguna cifra de ventas. Las horas pico
-        se miden por la hora en que llegó cada pedido pagado, en hora de Colombia.
+        {t('Un pedido cuenta el día en que se cobró o se canceló. Lo vendido incluye el costo de los domicilios; los cancelados no suman a ninguna cifra de ventas.')}{' '}
+        {t('Las horas pico se miden por la hora en que llegó cada pedido pagado, en hora de Colombia.')}
       </p>
     </div>
   );
