@@ -5,9 +5,18 @@ import { Resultado } from '../domain/dialogo';
 
 const MAX_VUELTAS = 6;
 
+/**
+ * Groq rechaza con 400 toda la petición si una herramienta sin parámetros trae "required": []
+ * ("'required' present but 'properties' is missing"). Sin esa lista vacía el esquema sigue siendo estricto.
+ */
+function sinRequeridosVacios(esquema: Record<string, unknown>): Record<string, unknown> {
+  const { required, ...resto } = esquema;
+  return Array.isArray(required) && required.length === 0 ? resto : esquema;
+}
+
 const TOOLS = HERRAMIENTAS.map((h) => ({
   type: 'function',
-  function: { name: h.nombre, description: h.descripcion, parameters: h.esquema, strict: true },
+  function: { name: h.nombre, description: h.descripcion, parameters: sinRequeridosVacios(h.esquema), strict: true },
 }));
 
 export interface OpcionesChatCompletions {
