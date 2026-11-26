@@ -7,9 +7,24 @@ import { CrearPedidoClienteUseCase } from '../../pedidos';
 import { leerConfig } from '../../../shared/config';
 import { DomainError } from '../../../shared/domain-error';
 import { PrismaService } from '../../../shared/prisma.service';
+import { TurnoChat } from '../domain/agente';
 import { CONTEXTO_VACIO, ContextoConversacion, EstadoConversacion, Paso, responder } from '../domain/dialogo';
 import { ColaPorClave } from './cola-por-clave';
-import { CanalChat, EMISOR_TELEGRAM, EMISOR_WHATSAPP, EmisorTelegram, EmisorWhatsApp, MOTOR_NLP, MotorNlp } from './puertos';
+import {
+  AGENTE_CONVERSACIONAL,
+  AgenteConversacional,
+  CanalChat,
+  EMISOR_TELEGRAM,
+  EMISOR_WHATSAPP,
+  EmisorTelegram,
+  EmisorWhatsApp,
+  MOTOR_NLP,
+  MotorNlp,
+} from './puertos';
+
+/** Cuántos mensajes anteriores ve el LLM, y hasta qué antigüedad: una charla de ayer no es parte del pedido de hoy */
+const MENSAJES_DE_HISTORIAL = 20;
+const HORAS_DE_HISTORIAL = 6;
 
 export interface MensajeEntrante {
   /** Por defecto, WhatsApp */
@@ -45,6 +60,7 @@ export class ProcesarMensajeUseCase {
     private readonly crearPedido: CrearPedidoClienteUseCase,
     private readonly enlacesPago: CrearEnlacePagoUseCase,
     @Inject(MOTOR_NLP) private readonly nlp: MotorNlp,
+    @Inject(AGENTE_CONVERSACIONAL) private readonly agente: AgenteConversacional,
     @Inject(EMISOR_WHATSAPP) private readonly whatsapp: EmisorWhatsApp,
     @Inject(EMISOR_TELEGRAM) private readonly telegram: EmisorTelegram,
   ) {}
@@ -87,10 +103,26 @@ export class ProcesarMensajeUseCase {
       contexto: { ...CONTEXTO_VACIO, ...(conversacion.contexto as unknown as Partial<ContextoConversacion>) },
     };
     const menu = await this.catalogo.menuParaBot();
-    const interpretacion = await this.nlp.interpretar(texto, { paso: estado.paso, menu });
-    await this.prisma.mensaje.update({ where: { id: entrante.id }, data: { intencion: interpretacion.intencion } });
+    const pagoEnLinea = this.enlacesPago.disponible;
+    // Primero el LLM, si hay uno configurado. Si no responde, atienden las reglas desde el mismo paso
+    let resultado = await this.agente.responder({
+      texto,
+      historial: await this.historial(conversacion.id, entrante.id),
+      estado,
+      menu,
+      costoDomicilio: this.costoDomicilio,
+      pagoEnLinea,
+    });
+    let intencion = 'llm';
+    if (!resultado) {
+      const interpretacion = await this.nlp.interpretar(texto, { paso: estado.paso, menu });
+      intencion = interpretacion.intencion;
+      resultado = responder(estado, interpretacion, texto, menu, this.costoDomicilio, pagoEnLinea);
+    }
+    await this.prisma.mensaje.update({ where: { id: entrante.id }, data: { intencion } });
 
-    let { paso, contexto, respuestas, crearPedido } = responder(estado, interpretacion, texto, menu, this.costoDomicilio, this.enlacesPago.disponible);
+    let { paso, contexto, respuestas } = resultado;
+    const { crearPedido } = resultado;
     if (crearPedido) {
       ({ paso, contexto, respuestas } = await this.confirmarPedido(canal, cliente.id, contexto, entrante.id));
     }
@@ -101,6 +133,17 @@ export class ProcesarMensajeUseCase {
     });
     await this.enviar(conversacion.id, destino, respuestas);
     return respuestas;
+  }
+
+  /** Los mensajes recientes de la conversación, del más antiguo al más nuevo, sin el que se está procesando. */
+  private async historial(conversacionId: string, sinMensajeId: string): Promise<TurnoChat[]> {
+    const mensajes = await this.prisma.mensaje.findMany({
+      where: { conversacionId, id: { not: sinMensajeId }, creadoEn: { gte: new Date(Date.now() - HORAS_DE_HISTORIAL * 3_600_000) } },
+      orderBy: { creadoEn: 'desc' },
+      take: MENSAJES_DE_HISTORIAL,
+      select: { direccion: true, texto: true },
+    });
+    return mensajes.reverse().map((m) => ({ rol: m.direccion === 'ENTRANTE' ? 'cliente' : 'bot', texto: m.texto }));
   }
 
   private async confirmarPedido(canal: CanalChat, clienteId: string, contexto: ContextoConversacion, mensajeId: string) {

@@ -47,7 +47,7 @@ export function textoMenu(menu: ProductoBot[]): string {
   return `📋 *Nuestro menú*\n\n${secciones.join('\n\n')}\n\nEscríbeme lo que quieres, por ejemplo: *2 ${disponibles[0].nombre.toLowerCase()}*`;
 }
 
-function textoCarrito(carrito: ItemCarrito[]) {
+export function textoCarrito(carrito: ItemCarrito[]) {
   return carrito.map((i) => `• ${i.cantidad}× ${i.nombre}${i.notas ? ` (${i.notas})` : ''} — ${pesos(i.precio * i.cantidad)}`).join('\n');
 }
 
@@ -86,7 +86,7 @@ const AYUDA =
   'Así funciona:\n1. Dime qué productos quieres y cuántos\n2. Escribe *listo* cuando termines\n3. Elige *domicilio* o *recoger*\n4. Confirma tu pedido\n\nEscribe *menú* para ver la carta.';
 
 /** Agrega los productos al carrito y avisa de los que no están disponibles. */
-function agregar(contexto: ContextoConversacion, items: ItemInterpretado[], menu: ProductoBot[]) {
+export function agregar(contexto: ContextoConversacion, items: ItemInterpretado[], menu: ProductoBot[]) {
   const carrito = contexto.carrito.map((i) => ({ ...i }));
   const avisos: string[] = [];
   for (const item of items) {
@@ -127,7 +127,7 @@ const PREGUNTA_ENTREGA = '¿Lo quieres *a domicilio* o *para recoger* en el rest
 const PREGUNTA_DIRECCION = '📍 ¿A qué dirección lo enviamos? Incluye barrio y alguna referencia.\nEjemplo: *Calle 15 # 8-22, barrio Centro, casa azul*';
 
 /** Una dirección mínima: algo de texto y al menos un número. */
-const pareceDireccion = (texto: string) => texto.trim().length >= 8 && /\d/.test(texto);
+export const pareceDireccion = (texto: string) => texto.trim().length >= 8 && /\d/.test(texto);
 
 export function responder(
   estado: EstadoConversacion,

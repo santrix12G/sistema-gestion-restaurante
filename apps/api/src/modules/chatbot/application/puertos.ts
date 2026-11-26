@@ -1,7 +1,8 @@
 // Puertos del chatbot: el caso de uso no sabe si habla con Twilio, Meta, Telegram,
 // ni si entiende con reglas o con un LLM. Cada proveedor se elige en el .env.
 import { ProductoBot } from '../domain/buscador-productos';
-import { Paso } from '../domain/dialogo';
+import { EntradaAgente } from '../domain/agente';
+import { Paso, Resultado } from '../domain/dialogo';
 import { Interpretacion } from '../domain/interpretacion';
 
 export interface ContextoNlp {
@@ -11,6 +12,14 @@ export interface ContextoNlp {
 
 export interface MotorNlp {
   interpretar(texto: string, contexto: ContextoNlp): Promise<Interpretacion>;
+}
+
+/**
+ * Un LLM que atiende la conversación y cambia el pedido con las herramientas de domain/agente.ts.
+ * Devuelve null si no pudo responder (sin clave, caída del proveedor, tiempo agotado): entonces atienden las reglas.
+ */
+export interface AgenteConversacional {
+  responder(entrada: EntradaAgente): Promise<Resultado | null>;
 }
 
 export type CanalChat = 'WHATSAPP' | 'TELEGRAM';
@@ -32,5 +41,6 @@ export interface EmisorTelegram {
 }
 
 export const MOTOR_NLP = Symbol('MotorNlp');
+export const AGENTE_CONVERSACIONAL = Symbol('AgenteConversacional');
 export const EMISOR_WHATSAPP = Symbol('EmisorWhatsApp');
 export const EMISOR_TELEGRAM = Symbol('EmisorTelegram');
