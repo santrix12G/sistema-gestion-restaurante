@@ -34,8 +34,18 @@ services:
         sync: false
       - key: META_ACCESS_TOKEN
         sync: false
+      # reglas, groq, claude u openai. Con groq (gratis), pon GROQ_API_KEY; con claude, ANTHROPIC_API_KEY;
+      # con openai, OPENAI_API_KEY y OPENAI_MODEL
       - key: NLP_PROVIDER
-        value: reglas
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
       - key: COSTO_DOMICILIO
         value: "5000"
       # Pago en línea con MercadoPago. Webhook: https://TU-API/api/webhooks/mercadopago. Ver docs/pagos.md

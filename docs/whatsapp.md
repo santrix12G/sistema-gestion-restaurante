@@ -13,7 +13,7 @@ sequenceDiagram
     C->>M: "2 hamburguesas y una limonada"
     M->>A: POST /api/webhooks/twilio o /whatsapp (firmado)
     A-->>M: 200 de inmediato
-    A->>A: NLP → diálogo → carrito
+    A->>A: LLM con herramientas (o reglas) → carrito
     A->>M: Envía la respuesta por su API
     M->>C: Resumen y pregunta
     Note over A,W: Al confirmar, el pedido queda activo y la web se actualiza al instante (Socket.IO)
@@ -26,18 +26,22 @@ El módulo `chatbot` tiene las mismas capas que el resto del monolito:
 
 | Capa | Archivo | Qué hace |
 |---|---|---|
-| Dominio | `domain/nlu-reglas.ts` | Entiende el mensaje con reglas: productos, cantidades ("dos", "media docena"), notas ("sin cebolla") e intención |
-| Dominio | `domain/dialogo.ts` | Los pasos de la conversación: armar el pedido, tipo de entrega, dirección y confirmación |
-| Aplicación | `application/procesar-mensaje.use-case.ts` | Guarda el mensaje, llama al NLP y al diálogo, crea el pedido y responde |
+| Dominio | `domain/agente.ts` | Las instrucciones y las herramientas del LLM (agregar, quitar, entrega, pago, resumen, confirmar, cancelar). Cada herramienta valida contra el menú real |
+| Dominio | `domain/nlu-reglas.ts` | Respaldo sin LLM: entiende el mensaje con reglas (productos, cantidades, notas e intención) |
+| Dominio | `domain/dialogo.ts` | Respaldo sin LLM: los pasos fijos de la conversación. También da el resumen oficial con el total |
+| Aplicación | `application/procesar-mensaje.use-case.ts` | Guarda el mensaje, se lo pasa al LLM (o a las reglas si no responde), crea el pedido y responde |
 | Aplicación | `application/notificar-cliente.ts` | Escucha los cambios de estado y le escribe al cliente por el canal en que pidió |
 | Aplicación | `application/recibir-telegram.use-case.ts` | En Telegram, pide el número del cliente la primera vez y luego pasa cada mensaje al bot |
 | Infraestructura | `infrastructure/webhook-twilio.controller.ts` | Recibe los avisos de Twilio y valida su firma |
 | Infraestructura | `infrastructure/webhook-whatsapp.controller.ts` | Recibe los avisos de Meta y valida su firma |
 | Infraestructura | `infrastructure/emisores.ts` | Envía por Twilio o por Meta, o no envía nada en modo simulado |
 | Infraestructura | `infrastructure/telegram.ts` | Recibe los mensajes de Telegram (sondeo) y envía las respuestas |
-| Infraestructura | `infrastructure/motores-nlp.ts` | NLP por reglas o con OpenAI |
+| Infraestructura | `infrastructure/agente-claude.ts` | El LLM con Claude (SDK de Anthropic) |
+| Infraestructura | `infrastructure/agente-openai.ts` | El LLM con OpenAI (API de Responses) |
+| Infraestructura | `infrastructure/agente-chat-completions.ts` | El LLM con Groq, gratis. Sirve para cualquier API compatible con Chat Completions |
+| Infraestructura | `infrastructure/motores-nlp.ts` | Motor de reglas, el respaldo |
 
-Los precios y los productos siempre salen de la base de datos. El NLP solo propone nombres, que se cruzan con el menú.
+Los precios y los productos siempre salen de la base de datos. El LLM conversa, pero solo cambia el pedido llamando a las herramientas, que buscan cada producto en el menú y usan su precio real. El total que ve el cliente lo escribe el código, no el modelo.
 
 ## Elegir cómo funciona, desde el `.env`
 
@@ -45,7 +49,7 @@ Los precios y los productos siempre salen de la base de datos. El NLP solo propo
 |---|---|---|
 | `WHATSAPP_PROVIDER` | `simulado` (por defecto), `twilio` o `meta` | Con `simulado` WhatsApp queda sin conectar y no se envía nada. Con `twilio` o `meta` responde por WhatsApp real |
 | `TELEGRAM_BOT_TOKEN` | El token de @BotFather, o vacío | Con token, el bot también atiende por Telegram. Funciona junto a cualquier valor de `WHATSAPP_PROVIDER` |
-| `NLP_PROVIDER` | `reglas` (por defecto) u `openai` | Con `openai` entiende mejor la escritura libre. Si OpenAI falla o tarda más de 10 segundos, responden las reglas |
+| `NLP_PROVIDER` | `reglas` (por defecto), `groq`, `claude` u `openai` | Con `groq`, `claude` u `openai`, un LLM atiende la conversación y responde preguntas libres. Si falla o tarda más de 25 segundos, responden las reglas |
 | `COSTO_DOMICILIO` | Pesos, por ejemplo `5000` | Se suma a los pedidos a domicilio |
 
 Cambiar de proveedor no requiere tocar código: solo el `.env` y reiniciar la API.
@@ -197,18 +201,46 @@ Desde un celular autorizado, escríbele "hola" al número de prueba. Si no respo
 
 El token temporal vence cada día. Para uno que no venza: en la configuración del negocio de Meta, **Usuarios del sistema**, crea un usuario administrador, asígnale la app y genera un token con los permisos `whatsapp_business_messaging` y `whatsapp_business_management`.
 
-## Usar OpenAI para entender los mensajes (opcional)
+## Atender con un LLM (Claude u OpenAI)
 
-1. Crea una clave en [platform.openai.com](https://platform.openai.com).
-2. En el `.env`:
+Con un LLM, el bot conversa como una persona: responde "¿qué me recomiendas?" o "¿la hamburguesa trae papas?" con la información del menú, entiende pedidos escritos de cualquier forma y no obliga a usar palabras como *listo*.
+
+**Con Groq (plan gratuito):** crea una cuenta y una clave en [console.groq.com](https://console.groq.com), sin tarjeta, y en el `.env`:
+
+```env
+NLP_PROVIDER="groq"
+GROQ_API_KEY="gsk_..."
+GROQ_MODEL=""   # Vacío usa openai/gpt-oss-120b
+```
+
+El plan gratuito tiene límites por minuto y por día; los de tu cuenta están en *Settings → Limits* de la consola. Cada mensaje del cliente gasta de 1 a 3 peticiones. Si se acaba el cupo, Groq responde 429 y ese mensaje lo atienden las reglas, sin cortar la conversación.
+
+**Con Claude:** crea una clave en [console.anthropic.com](https://console.anthropic.com) y en el `.env`:
+
+```env
+NLP_PROVIDER="claude"
+ANTHROPIC_API_KEY="..."
+ANTHROPIC_MODEL=""   # Vacío usa claude-opus-5-5
+```
+
+**Con OpenAI:** crea una clave en [platform.openai.com](https://platform.openai.com) y en el `.env`:
 
 ```env
 NLP_PROVIDER="openai"
 OPENAI_API_KEY="..."
-OPENAI_MODEL="..."   # Un modelo actual que admita Structured Outputs
+OPENAI_MODEL="..."   # Un modelo actual que admita llamadas a funciones
 ```
 
-El modelo solo clasifica el mensaje y devuelve los nombres de productos. Los precios, el carrito y los pedidos los maneja el código. Cada mensaje es una consulta a OpenAI, con su costo.
+Cómo funciona cada mensaje:
+
+1. El LLM recibe las instrucciones fijas (`INSTRUCCIONES_AGENTE`), el menú con precios, el pedido en curso y los últimos 20 mensajes de las 6 horas anteriores.
+2. Para cambiar el pedido llama a las herramientas de `domain/agente.ts`. Cada una valida contra el menú y le responde qué pasó; el modelo puede llamar varias antes de contestar (máximo 6 vueltas).
+3. `mostrar_resumen` envía el resumen oficial con el total, escrito por el código. `confirmar_pedido` solo funciona si el cliente ya vio ese resumen y el pedido no cambió después.
+4. Si el proveedor falla, rechaza el mensaje o tarda más de 25 segundos, ese mensaje lo atienden las reglas desde el mismo paso.
+
+En la tabla `mensajes`, la columna `intencion` vale `llm` cuando respondió el LLM, o la intención de las reglas cuando respondieron ellas.
+
+Cada mensaje del cliente es una o varias consultas al proveedor, con su costo. Claude responde con esfuerzo bajo (`effort: low`) para que la conversación sea rápida, y guarda en caché las instrucciones fijas. Si Claude rechaza un mensaje por seguridad, el servidor lo reintenta con otro modelo en la misma llamada (`fallbacks: "default"`).
 
 ## Seguridad y límites
 

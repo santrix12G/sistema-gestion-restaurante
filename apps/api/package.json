@@ -15,9 +15,11 @@
     "test:e2e": "jest --config jest.e2e.config.js --runInBand",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node prisma/seed.mjs",
+    "db:usuarios-prueba": "node prisma/usuarios-prueba.mjs",
     "db:estado": "prisma migrate status"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@nestjs/common": "^11.2.8",
     "@nestjs/core": "^11.2.8",
     "@nestjs/jwt": "^11.0.2",

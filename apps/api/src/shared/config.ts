@@ -35,9 +35,14 @@ export interface Config {
     urlPublica: string;
   };
   nlp: {
-    proveedor: 'reglas' | 'openai';
+    /** Quién atiende el chat. Con openai o claude, las reglas quedan de respaldo si el LLM falla */
+    proveedor: 'reglas' | 'openai' | 'claude' | 'groq';
     openaiApiKey: string;
     openaiModelo: string;
+    anthropicApiKey: string;
+    anthropicModelo: string;
+    groqApiKey: string;
+    groqModelo: string;
   };
   pagos: {
     mercadopago: {
@@ -73,8 +78,12 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
 
   const proveedorNlp = env.NLP_PROVIDER ?? 'reglas';
-  if (proveedorNlp !== 'reglas' && proveedorNlp !== 'openai') throw new Error('NLP_PROVIDER debe ser reglas u openai');
+  if (!['reglas', 'openai', 'claude', 'groq'].includes(proveedorNlp)) {
+    throw new Error('NLP_PROVIDER debe ser reglas, groq, openai o claude');
+  }
+  if (proveedorNlp === 'groq') exigir(env, ['GROQ_API_KEY'], 'NLP_PROVIDER=groq');
   if (proveedorNlp === 'openai') exigir(env, ['OPENAI_API_KEY', 'OPENAI_MODEL'], 'NLP_PROVIDER=openai');
+  if (proveedorNlp === 'claude') exigir(env, ['ANTHROPIC_API_KEY'], 'NLP_PROVIDER=claude');
 
   if (env.TELEGRAM_WEBHOOK_SECRET) {
     if (!/^[A-Za-z0-9_-]{16,256}$/.test(env.TELEGRAM_WEBHOOK_SECRET)) {
@@ -123,9 +132,13 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
       urlPublica: (env.API_PUBLIC_URL ?? env.RENDER_EXTERNAL_URL ?? '').replace(/\/+$/, ''),
     },
     nlp: {
-      proveedor: proveedorNlp,
+      proveedor: proveedorNlp as Config['nlp']['proveedor'],
       openaiApiKey: env.OPENAI_API_KEY ?? '',
       openaiModelo: env.OPENAI_MODEL ?? '',
+      anthropicApiKey: env.ANTHROPIC_API_KEY ?? '',
+      anthropicModelo: env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+      groqApiKey: env.GROQ_API_KEY ?? '',
+      groqModelo: env.GROQ_MODEL || 'openai/gpt-oss-120b',
     },
     pagos: {
       mercadopago: {
