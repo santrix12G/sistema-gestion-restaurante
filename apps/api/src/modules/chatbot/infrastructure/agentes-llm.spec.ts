@@ -125,6 +125,11 @@ describe('AgenteChatCompletions (Groq)', () => {
     const primera = cuerpos[0] as { model: string; reasoning_effort: string; tools: { function: { strict: boolean } }[] };
     expect(primera).toMatchObject({ model: 'openai/gpt-oss-120b', reasoning_effort: 'low' });
     expect(primera.tools.every((t) => t.function.strict)).toBe(true);
+    // Groq rechaza "required": [] en las herramientas sin parámetros
+    const sinParametros = (primera.tools as unknown as { function: { name: string; parameters: Record<string, unknown> } }[]).find(
+      (t) => t.function.name === 'vaciar_pedido',
+    )!;
+    expect(sinParametros.function.parameters).toEqual({ type: 'object', additionalProperties: false, properties: {} });
     // Vuelve el mensaje del asistente sin su razonamiento, seguido del resultado de la herramienta
     const segunda = cuerpos[1] as { messages: Record<string, unknown>[] };
     const [asistente, herramienta] = segunda.messages.slice(-2);
