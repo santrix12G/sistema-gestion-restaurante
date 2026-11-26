@@ -11,7 +11,8 @@ Corresponde a la Fase 2 de la guía metodológica. El esquema está en [`schema.
 | Catálogo | `categorias`, `productos` | El menú, con sinónimos para que el chatbot reconozca los productos |
 | Pedidos | `mesas`, `pedidos`, `detalles_pedido`, `historial_estados_pedido` | Pedidos de los tres canales, y quién cambió cada estado y cuándo. Cada mesa tiene tipo (`NORMAL`, `LARGA`, `AFUERA`) y número; su código es la abreviatura más el número (M3, L1, AF2), y el número se repite entre tipos |
 | Entregas | `entregas` | Dirección, repartidor y estado de cada domicilio |
-| Pagos | `pagos` | Efectivo o pasarela en línea |
+| Pagos | `pagos` | Efectivo, tarjeta, transferencia o pasarela en línea, con la caja en la que entró y quién lo cobró |
+| Caja | `cajas`, `movimientos_caja` | Cada turno de caja: base, quién la abrió y la cerró, el efectivo esperado y el contado, y las entradas y salidas de efectivo |
 | Chatbot | `conversaciones`, `mensajes` | En qué paso va cada cliente en cada canal (WhatsApp o Telegram), lo que lleva pedido y los mensajes |
 | Inventario (opcional) | `ingredientes`, `recetas`, `movimientos_inventario` | Stock, consumo por producto y cada entrada o salida |
 | Integración | `eventos_outbox` | Eventos pendientes de publicar en el bus, como `PEDIDO_CONFIRMADO` |
@@ -37,6 +38,12 @@ erDiagram
     DIRECCIONES ||--o{ ENTREGAS : recibe
     USUARIOS |o--o{ ENTREGAS : reparte
     PEDIDOS ||--o{ PAGOS : se_paga_con
+    CAJAS |o--o{ PAGOS : recibe
+    USUARIOS |o--o{ PAGOS : cobra
+    USUARIOS ||--o{ CAJAS : abre
+    USUARIOS |o--o{ CAJAS : cierra
+    CAJAS ||--o{ MOVIMIENTOS_CAJA : registra
+    USUARIOS ||--o{ MOVIMIENTOS_CAJA : realiza
     PRODUCTOS ||--o{ RECETAS : se_prepara_con
     INGREDIENTES ||--o{ RECETAS : se_usa_en
     INGREDIENTES ||--o{ MOVIMIENTOS_INVENTARIO : registra
@@ -50,6 +57,7 @@ erDiagram
 - **Stock trazable:** el stock se actualiza con un trigger cada vez que se registra un movimiento. Los movimientos no se editan ni se borran: un error se corrige con un `AJUSTE`.
 - **Reintentos sin duplicados:** WhatsApp y las pasarelas repiten sus notificaciones. Lo impiden `wa_message_id` (guarda el identificador del mensaje en WhatsApp o Telegram), `clave_idempotencia` y `referencia_externa`, que son únicos.
 - **Reglas en la base de datos:** el total debe ser subtotal más domicilio, un pedido de mesa necesita mesa, un domicilio necesita cliente y un pedido no admite dos pagos aprobados. Están en la migración `reglas_integridad`.
+- **Una sola caja abierta:** un índice único parcial sobre `cajas` (solo las que no tienen `cerrada_en`) impide abrir dos a la vez. Al cerrar se guarda el efectivo esperado (base + efectivo cobrado + entradas − salidas) junto al contado, para ver el sobrante o el faltante.
 - **Fechas:** se guardan con zona horaria (`timestamptz`), y la hora de Colombia se calcula al mostrarlas.
 - **Identificadores:** UUID generados por PostgreSQL. `pedidos.numero` es el número corto que ven el cliente y el personal.
 

@@ -12,6 +12,7 @@ const COLUMNAS = [
   ['Usuario', 'HistorialEstadoPedido', 'EventoOutbox'],
   ['Cliente', 'Direccion', 'Conversacion', 'Mensaje'],
   ['Pedido', 'Mesa', 'Pago'],
+  ['Caja', 'MovimientoCaja'],
   ['DetallePedido', 'Entrega', 'Categoria'],
   ['Producto', 'Receta', 'Ingrediente', 'MovimientoInventario'],
 ];
@@ -28,12 +29,12 @@ function leerEntidad(nombre) {
     const [campo, tipo] = linea.split(/\s+/);
     const base = tipo.replace(/[?\[\]]/g, '');
     if (modelos.has(base)) {
-      const fk = /@relation\(fields: \[(\w+)/.exec(linea);
+      const fk = /@relation\((?:"\w+", )?fields: \[(\w+)/.exec(linea);
       if (fk) relaciones.push({ fk: fk[1], destino: base, opcional: tipo.endsWith('?') });
       continue;
     }
     const columna = /@map\("(\w+)"\)/.exec(linea)?.[1] ?? campo;
-    campos.push({ campo, columna, tipo, pk: linea.includes('@id') || new RegExp(`@@id\\(\\[.*\\b${campo}\\b`).test(cuerpo), unico: /@unique\b/.test(linea) });
+    campos.push({ campo, columna, tipo, pk: linea.includes('@id') || new RegExp(`@@id\\(\\[.*\\b${campo}\\b`).test(cuerpo), unico: /@unique\b/.test(linea) || new RegExp(`@@unique\\(\\[.*\\b${campo}\\b`).test(cuerpo) });
   }
   const tabla = /@@map\("(\w+)"\)/.exec(cuerpo)[1];
   return { nombre, tabla, campos, relaciones };

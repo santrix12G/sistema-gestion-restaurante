@@ -63,6 +63,27 @@ Si después cambias `NEXT_PUBLIC_API_URL`, vuelve a desplegar en Vercel (**Deplo
 
 Entra a la dirección de Vercel con `admin@restaurante.test` y la contraseña que definiste en el seed.
 
+## Cuentas para pruebas de usabilidad
+
+Crea 2 meseros, 2 repartidores y 1 administrador de prueba, con contraseñas aleatorias:
+
+```
+cd apps/api
+npm run db:usuarios-prueba
+```
+
+Usa la base de `DATABASE_URL` en `apps/api/.env`. Si es la de Supabase, las cuentas quedan en producción y sirven en la web y en la app. Antes de crear nada, el comando muestra a qué base se conecta.
+
+Las contraseñas se muestran **una sola vez**: anótalas y entrégale a cada participante la suya. Las cuentas usan correos `@pruebas.restaurante.test`, que no existen, así que no reciben el enlace de recuperación.
+
+| Comando | Qué hace |
+|---|---|
+| `npm run db:usuarios-prueba` | Crea las cuentas que falten. Las que ya existen no cambian |
+| `npm run db:usuarios-prueba -- --nuevas-contrasenas` | Pone contraseñas nuevas a todas, cierra sus sesiones y reactiva las suspendidas |
+| `npm run db:usuarios-prueba -- --quitar` | Al terminar: borra las cuentas sin registros y suspende las que tomaron pedidos, cobraron o abrieron caja, para conservar esos datos |
+
+Los pedidos, cobros y cajas de las pruebas cuentan en las estadísticas y la caja reales. Si no quieres mezclarlos, haz las pruebas antes de abrir el restaurante o cancela esos pedidos al terminar.
+
 ## Telegram en producción
 
 Con `TELEGRAM_WEBHOOK_SECRET`, la API le dice a Telegram al arrancar que le entregue los mensajes en `https://TU-API/api/webhooks/telegram`. Así, un mensaje al bot despierta la API dormida. Verás en los registros de Render: `Bot de Telegram @tu_bot recibe mensajes en …`.
