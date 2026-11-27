@@ -4,6 +4,8 @@ import { contextoAgente, EntradaAgente, HERRAMIENTAS, INSTRUCCIONES_AGENTE, Sesi
 import { Resultado } from '../domain/dialogo';
 
 const MAX_VUELTAS = 6;
+/** Más de esto, el cliente esperaría demasiado: mejor que respondan las reglas */
+const MAX_ESPERA_CUPO_S = 12;
 
 /**
  * Groq rechaza con 400 toda la petición si una herramienta sin parámetros trae "required": []
@@ -29,6 +31,8 @@ export interface OpcionesChatCompletions {
   /** Campos propios del proveedor que se agregan a cada petición */
   extras?: Record<string, unknown>;
   fetch?: typeof fetch;
+  /** Para las pruebas: cómo esperar antes de reintentar */
+  esperar?: (ms: number) => Promise<void>;
 }
 
 interface LlamadaHerramienta {
@@ -50,10 +54,12 @@ interface MensajeAsistente {
 export class AgenteChatCompletions implements AgenteConversacional {
   private readonly logger: Logger;
   private readonly fetch: typeof fetch;
+  private readonly esperar: (ms: number) => Promise<void>;
 
   constructor(private readonly opciones: OpcionesChatCompletions) {
     this.logger = new Logger(`Agente${opciones.proveedor}`);
     this.fetch = opciones.fetch ?? fetch;
+    this.esperar = opciones.esperar ?? ((ms) => new Promise((listo) => setTimeout(listo, ms)));
   }
 
   async responder(entrada: EntradaAgente): Promise<Resultado | null> {
@@ -65,16 +71,29 @@ export class AgenteChatCompletions implements AgenteConversacional {
       { role: 'user', content: entrada.texto },
     ];
 
+    // Como mucho una espera por mensaje, para que el cliente no quede esperando
+    let reintentado = false;
     try {
       for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
-        const respuesta = await this.fetch(url, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: modelo, messages, tools: TOOLS, ...extras }),
-          signal: AbortSignal.timeout(25_000),
-        });
+        const pedir = () =>
+          this.fetch(url, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelo, messages, tools: TOOLS, ...extras }),
+            signal: AbortSignal.timeout(25_000),
+          });
+        let respuesta = await pedir();
+        // 429: se llenó el cupo por minuto del plan gratuito. Si Groq dice que se libera pronto, se espera y se reintenta una vez
+        const espera = respuesta.status === 429 ? Number(respuesta.headers.get('retry-after')) : NaN;
+        if (!reintentado && espera > 0 && espera <= MAX_ESPERA_CUPO_S) {
+          reintentado = true;
+          await respuesta.body?.cancel().catch(() => undefined);
+          this.logger.log(`${proveedor}: cupo por minuto lleno; se reintenta en ${espera} s`);
+          await this.esperar(espera * 1000);
+          respuesta = await pedir();
+        }
         if (!respuesta.ok) {
-          // 429: se acabó el cupo del plan gratuito. Ese mensaje lo atienden las reglas
+          // Cupo agotado por más tiempo, clave inválida o caída del servicio: ese mensaje lo atienden las reglas
           const detalle = await respuesta.text().catch(() => '');
           this.logger.warn(`${proveedor} respondió ${respuesta.status}: ${detalle.slice(0, 300)}`);
           return null;
