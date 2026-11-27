@@ -87,6 +87,7 @@ describe('AgenteClaude', () => {
 });
 
 describe('AgenteChatCompletions (Groq)', () => {
+  const esperar = jest.fn(async () => undefined);
   const groq = (fetch: typeof globalThis.fetch) =>
     new AgenteChatCompletions({
       proveedor: 'Groq',
@@ -95,6 +96,7 @@ describe('AgenteChatCompletions (Groq)', () => {
       modelo: 'openai/gpt-oss-120b',
       extras: { reasoning_effort: 'low', include_reasoning: false },
       fetch,
+      esperar,
     });
 
   it('ejecuta las herramientas que pide el modelo y devuelve su respuesta final', async () => {
@@ -141,6 +143,25 @@ describe('AgenteChatCompletions (Groq)', () => {
   it('si se acaba el cupo gratuito (429), devuelve null para que respondan las reglas', async () => {
     const { fetch } = fetchSimulado([new Response('{"error":{"message":"Rate limit reached"}}', { status: 429 })]);
     await expect(groq(fetch).responder(ENTRADA)).resolves.toBeNull();
+  });
+
+  it('si el cupo por minuto se libera en pocos segundos, espera y reintenta una vez', async () => {
+    const lleno = () => new Response('{"error":{"message":"Rate limit reached"}}', { status: 429, headers: { 'retry-after': '8' } });
+    const { fetch } = fetchSimulado([lleno(), { choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '¡Hola! ¿Qué te provoca?' } }] }]);
+    esperar.mockClear();
+    await expect(groq(fetch).responder(ENTRADA)).resolves.toMatchObject({ respuestas: ['¡Hola! ¿Qué te provoca?'] });
+    expect(esperar).toHaveBeenCalledWith(8000);
+
+    // Si tarda demasiado en liberarse, no espera: responden las reglas
+    const largo = fetchSimulado([new Response('{}', { status: 429, headers: { 'retry-after': '60' } })]);
+    esperar.mockClear();
+    await expect(groq(largo.fetch).responder(ENTRADA)).resolves.toBeNull();
+    expect(esperar).not.toHaveBeenCalled();
+  });
+
+  it('pasa el Markdown del modelo al formato de WhatsApp', async () => {
+    const { fetch } = fetchSimulado([{ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'Te recomiendo la **Limonada natural**.' } }] }]);
+    await expect(groq(fetch).responder(ENTRADA)).resolves.toMatchObject({ respuestas: ['Te recomiendo la *Limonada natural*.'] });
   });
 });
 
